@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, Heart, Pause, Play, SkipForward, Volume2, VolumeX, X } from 'lucide-react';
-import type { Session } from '@supabase/supabase-js';
-import { supabase } from './lib/supabase';
 import { memoryCaption, memoryStory } from './memoryStory';
 
 type Scene = { name:string; url:string; type:'photo'|'video' };
@@ -18,7 +16,7 @@ const headings=[
   'The story is still unfolding.'
 ];
 const DURATIONS={photo:6000,video:12000};
-export function MemoryFilm({session,onClose,firstVisit=false,onFinished}:{session:Session;onClose:()=>void;firstVisit?:boolean;onFinished?:()=>Promise<void>}) {
+export function MemoryFilm({onClose,firstVisit=false,onFinished}:{onClose:()=>void;firstVisit?:boolean;onFinished?:()=>Promise<void>}) {
   const [scenes,setScenes]=useState<Scene[]>([]);
   const [soundtrack,setSoundtrack]=useState('');
   const [loading,setLoading]=useState(true);
