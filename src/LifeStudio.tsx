@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import { Check, ChevronLeft, FilePlus2, PenLine, Plus, Search, Trash2, Undo2, Highlighter, Eraser } from 'lucide-react';
+import { Check, ChevronLeft, FilePlus2, PenLine, Plus, Search, Trash2, Undo2, Highlighter, Eraser, Pin, ListTodo, Heading } from 'lucide-react';
 import { supabase } from './lib/supabase';
-type Kind = 'note'|'wardrobe'|'goal';
+type Kind = 'note'|'wardrobe'|'goal'|'journal';
 type Point = {x:number;y:number};
 type Stroke = Point[];
 type Item = {id:string;user_id:string;kind:Kind;title:string;body:string;details:Record<string,unknown>;updated_at:string};
 type Props={session:Session;kind:Kind};
-const titleMap={note:'Notes',wardrobe:'My wardrobe',goal:'Vision & goals'};
+const titleMap={note:'Notes',wardrobe:'My wardrobe',goal:'Vision & goals',journal:'Journal'};
 const getString=(obj:Record<string,unknown>,key:string)=>typeof obj[key]==='string'?obj[key] as string:'';
 const getNumber=(obj:Record<string,unknown>,key:string)=>typeof obj[key]==='number'?obj[key] as number:0;
 export function LifeStudio({session,kind}:Props){
@@ -21,11 +21,15 @@ export function LifeStudio({session,kind}:Props){
  const [strokes,setStrokes]=useState<Stroke[]>([]);
  const [inkMode,setInkMode]=useState<'pen'|'highlighter'|'eraser'>('pen');
  const [inkColor,setInkColor]=useState('#403544');
+ const [folder,setFolder]=useState('All');
+ const [editVersion,setEditVersion]=useState(0);
+ const draftRef=useRef<Item|null>(null);
+ const saveSequence=useRef(0);
  const canvas=useRef<HTMLCanvasElement>(null);
  const writing=useRef(false);
  const latest=useRef<Stroke[]>([]);
  useEffect(()=>{
-  let mounted=true;setSelected(null);setDraft(null);setQuery('');setStatus('');
+  let mounted=true;setSelected(null);setDraft(null);setQuery('');setFolder('All');setStatus('');
   if(!supabase)return;
   supabase.from('life_items').select('*').eq('user_id',session.user.id).eq('kind',kind).order('updated_at',{ascending:false}).then(({data,error})=>{
    if(!mounted)return;
@@ -61,18 +65,35 @@ export function LifeStudio({session,kind}:Props){
   };
   render();const obs=new ResizeObserver(render);obs.observe(node);return ()=>obs.disconnect();
  },[draw,strokes,inkColor,inkMode]);
+ useEffect(()=>{draftRef.current=draft;},[draft]);
+ useEffect(()=>{
+  if(!editVersion||!supabase)return;
+  const client=supabase;
+  const sequence=++saveSequence.current;
+  const clock=window.setTimeout(async()=>{
+   const current=draftRef.current;if(!current)return;
+   const payload={id:current.id,user_id:session.user.id,kind,title:current.title.trim()||'Untitled',body:current.body,details:{...current.details,strokes:latest.current},updated_at:new Date().toISOString()};
+   setStatus('Saving…');
+   const {data,error}=await client.from('life_items').upsert(payload,{onConflict:'id'}).select('*').single();
+   if(sequence!==saveSequence.current)return;
+   if(error){setStatus('Autosave failed; tap Save to retry.');return;}
+   setItems(previous=>[data as Item,...previous.filter(item=>item.id!==current.id)]);
+   setStatus('Saved automatically.');
+  },1100);
+  return()=>window.clearTimeout(clock);
+ },[editVersion,session.user.id,kind]);
  function edit(item:Item){setSelected(item.id);setDraft({...item,details:{...item.details}});setStatus('');}
  function create(){
   const item={id:crypto.randomUUID(),user_id:session.user.id,kind,title:'',body:'',details:{},updated_at:new Date().toISOString()};
   setDraft(item);setSelected(item.id);setStatus('');
  }
- function update(patch:Partial<Item>){setDraft(d=>d?{...d,...patch}:d);}
- function detail(key:string,value:unknown){setDraft(d=>d?{...d,details:{...d.details,[key]:value}}:d);}
+ function update(patch:Partial<Item>){setDraft(d=>d?{...d,...patch}:d);setEditVersion(v=>v+1);}
+ function detail(key:string,value:unknown){setDraft(d=>d?{...d,details:{...d.details,[key]:value}}:d);setEditVersion(v=>v+1);}
  async function save(){
   if(!supabase||!draft)return;
-  if(!draft.title.trim()){setStatus('Give this item a title before saving.');return;}
+  saveSequence.current++;
   setBusy(true);setStatus('');
-  const payload={id:draft.id,user_id:session.user.id,kind,title:draft.title.trim(),body:draft.body,details:{...draft.details,strokes:latest.current},updated_at:new Date().toISOString()};
+  const payload={id:draft.id,user_id:session.user.id,kind,title:draft.title.trim()||'Untitled',body:draft.body,details:{...draft.details,strokes:latest.current},updated_at:new Date().toISOString()};
   const {data,error}=await supabase.from('life_items').upsert(payload,{onConflict:'id'}).select('*').single();
   setBusy(false);
   if(error){setStatus(error.message);return;}
@@ -93,25 +114,27 @@ export function LifeStudio({session,kind}:Props){
  function start(ev:PointerEvent<HTMLCanvasElement>){
   ev.preventDefault();ev.currentTarget.setPointerCapture(ev.pointerId);writing.current=true;
   if(inkMode==='eraser'){const next=latest.current.slice(0,-1);latest.current=next;setStrokes(next);return;}
-  const next=[...latest.current,[point(ev)]];latest.current=next;setStrokes(next);
+  const next=[...latest.current,[point(ev)]];latest.current=next;setStrokes(next);setEditVersion(v=>v+1);
  }
  function move(ev:PointerEvent<HTMLCanvasElement>){
   if(!writing.current)return;ev.preventDefault();
   const next=latest.current.map((s,i)=>i===latest.current.length-1?[...s,point(ev)]:s);
   latest.current=next;setStrokes(next);
  }
- function stop(){writing.current=false;}
- const filtered=items.filter(x=>(x.title+' '+x.body).toLowerCase().includes(query.toLowerCase()));
+ function stop(){writing.current=false;setEditVersion(v=>v+1);}
+ const folders=['All',...Array.from(new Set(items.map(x=>getString(x.details,'folder')).filter(Boolean)))];
+ const filtered=items.filter(x=>(folder==='All'||getString(x.details,'folder')===folder)&&(x.title+' '+x.body).toLowerCase().includes(query.toLowerCase())).sort((a,b)=>Number(Boolean(b.details.pinned))-Number(Boolean(a.details.pinned))||b.updated_at.localeCompare(a.updated_at));
  const d=draft?.details??{};
  return <div className="life-studio">
-  <div className="studio-heading"><div><p className="eyebrow">HERLIFE • YOUR PRIVATE SPACE</p><h1>{titleMap[kind]}</h1><p className="muted">{kind==='note'?'Your own notebook. Write, organise and draw freely.':kind==='wardrobe'?'A personal catalogue of the pieces you own and love.':'Give your dreams a direction, a deadline and a plan.'}</p></div><button className="primary" onClick={create}><Plus size={18}/> {kind==='note'?'New note':kind==='wardrobe'?'Add clothing':'New goal'}</button></div>
+  <div className="studio-heading"><div><p className="eyebrow">HERLIFE • YOUR PRIVATE SPACE</p><h1>{titleMap[kind]}</h1><p className="muted">{kind==='note'?'Write, organise and draw freely.':kind==='journal'?'A quiet page for your thoughts.':kind==='wardrobe'?'A personal catalogue of the pieces you own and love.':'Give your dreams a direction, a deadline and a plan.'}</p></div><button className="primary" onClick={create}><Plus size={18}/> {kind==='note'?'New note':kind==='journal'?'New entry':kind==='wardrobe'?'Add clothing':'New goal'}</button></div>
   <div className="studio-layout">
    <aside className="studio-index"><div className="studio-search"><Search size={17}/><input aria-label="Search items" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search your collection"/></div>
-    {filtered.length===0?<p className="empty">{query?'No matching items.':'Nothing here yet. Start with your first entry.'}</p>:filtered.map(item=><button key={item.id} onClick={()=>edit(item)} className={'studio-list-item '+(selected===item.id?'active':'')}><strong>{item.title}</strong><span>{item.body.slice(0,85)|| (kind==='wardrobe'?getString(item.details,'category'):'Tap to open')}</span><small>{new Date(item.updated_at).toLocaleDateString('en-ZA',{day:'numeric',month:'short',year:'numeric'})}</small></button>)}
+    {(kind==='note'||kind==='journal')&&<div className="studio-folders">{folders.map(name=><button className={folder===name?'active':''} key={name} onClick={()=>setFolder(name)}>{name}</button>)}</div>}
+    {filtered.length===0?<p className="empty">{query?'No matching items.':'Nothing here yet. Start with your first entry.'}</p>:filtered.map(item=><button key={item.id} onClick={()=>edit(item)} className={'studio-list-item '+(selected===item.id?'active':'')}><strong>{item.details.pinned?'📌 ':''}{item.title}</strong><span>{item.body.slice(0,85)|| (kind==='wardrobe'?getString(item.details,'category'):'Tap to open')}</span><small>{new Date(item.updated_at).toLocaleDateString('en-ZA',{day:'numeric',month:'short',year:'numeric'})}</small></button>)}
    </aside>
    <section className="studio-paper">
    {!draft?<div className="studio-blank"><FilePlus2 size={38}/><h2>Make this space yours.</h2><p>Select something on the left or create something new.</p></div>:<>
-    <div className="studio-toolbar"><button className="secondary studio-back" onClick={()=>{setDraft(null);setSelected(null);}}><ChevronLeft size={18}/> All {titleMap[kind].toLowerCase()}</button><div className="studio-toolbar-right">{kind==='note'&&<button className="secondary" onClick={()=>setDraw(v=>!v)}><PenLine size={16}/>{draw?'Type':'Draw'}</button>}<button className="secondary" aria-label="Delete item" onClick={()=>void remove()}><Trash2 size={16}/></button><button className="primary" disabled={busy} onClick={()=>void save()}><Check size={17}/>{busy?'Saving…':'Save'}</button></div></div>
+    <div className="studio-toolbar"><button className="secondary studio-back" onClick={()=>{setDraft(null);setSelected(null);}}><ChevronLeft size={18}/> All {titleMap[kind].toLowerCase()}</button><div className="studio-toolbar-right">{(kind==='note'||kind==='journal')&&<button className="secondary" onClick={()=>setDraw(v=>!v)}><PenLine size={16}/>{draw?'Type':'Draw'}</button>}<button className="secondary" aria-label="Delete item" onClick={()=>void remove()}><Trash2 size={16}/></button><button className="primary" disabled={busy} onClick={()=>void save()}><Check size={17}/>{busy?'Saving…':'Save'}</button></div></div>
     <input className="studio-title" aria-label="Title" value={draft.title} onChange={e=>update({title:e.target.value})} maxLength={180} placeholder={kind==='note'?'Untitled note':kind==='wardrobe'?'Clothing item': 'Name your goal'}/>
     {kind==='wardrobe'&&<div className="studio-fields">
      <label>Category<input value={getString(d,'category')} placeholder="Dress, shoes, jacket…" onChange={e=>detail('category',e.target.value)}/></label>
@@ -127,10 +150,11 @@ export function LifeStudio({session,kind}:Props){
      <label>Progress: {getNumber(d,'progress')}%<input type="range" min="0" max="100" step="5" value={getNumber(d,'progress')} onChange={e=>detail('progress',Number(e.target.value))}/></label>
      <label>Status<select value={getString(d,'status')||'Planning'} onChange={e=>detail('status',e.target.value)}>{['Planning','In progress','Paused','Completed'].map(x=><option key={x}>{x}</option>)}</select></label>
     </div><h3>Steps and milestones</h3></>}
-    {kind==='note'&&<div className="note-format">Write freely. Choose Draw for Apple Pencil or touch handwriting.</div>}
-    <textarea className={'studio-body '+(kind==='note'?'note-page':'')} value={draft.body} onChange={e=>update({body:e.target.value})} placeholder={kind==='note'?'Begin writing…':kind==='wardrobe'?'Fit, styling ideas, outfit combinations, notes…':'Why this matters, next steps, milestones and what success looks like…'} aria-label={kind==='note'?'Note body':'Details'} />
-    {kind==='note'&&draw&&<div className="drawing-section"><div className="drawing-tools"><strong>Handwriting</strong><div className="ink-actions"><button className="icon-btn" title="Pen" aria-label="Pen" aria-pressed={inkMode==='pen'} onClick={()=>setInkMode('pen')}><PenLine size={17}/></button><button className="icon-btn" title="Highlighter" aria-label="Highlighter" aria-pressed={inkMode==='highlighter'} onClick={()=>setInkMode('highlighter')}><Highlighter size={17}/></button><button className="icon-btn" title="Erase last stroke" aria-label="Erase last stroke" onClick={()=>{latest.current=latest.current.slice(0,-1);setStrokes(latest.current);}}><Eraser size={17}/></button><button className="icon-btn" title="Undo" aria-label="Undo" onClick={()=>{latest.current=latest.current.slice(0,-1);setStrokes(latest.current);}}><Undo2 size={17}/></button><input type="color" aria-label="Ink colour" value={inkColor} onChange={e=>setInkColor(e.target.value)}/></div></div><canvas className="note-canvas" ref={canvas} onPointerDown={start} onPointerMove={move} onPointerUp={stop} onPointerCancel={stop} aria-label="Freehand writing canvas for stylus or finger"/></div>}
-    <div className="studio-status" role="status">{status||'Your changes are saved only when you tap Save.'}</div>
+    {(kind==='note'||kind==='journal')&&<div className="writing-actions"><button className="secondary" onClick={()=>detail('pinned',!d.pinned)}><Pin size={15}/>{d.pinned?'Unpin':'Pin'}</button><label>Folder<input placeholder="Personal" value={getString(d,'folder')} onChange={e=>detail('folder',e.target.value)} maxLength={60}/></label><button className="secondary" onClick={()=>update({body:draft.body+(draft.body?'\n':'')+'☐ '})}><ListTodo size={15}/> Checklist</button><button className="secondary" onClick={()=>update({body:draft.body+(draft.body?'\n':'')+'## '})}><Heading size={15}/> Heading</button></div>}
+    {(kind==='note'||kind==='journal')&&<div className="note-format">Write freely. Choose Draw for Apple Pencil or touch handwriting.</div>}
+    <textarea className={'studio-body '+((kind==='note'||kind==='journal')?'note-page':'')} value={draft.body} onChange={e=>update({body:e.target.value})} placeholder={(kind==='note'||kind==='journal')?'Begin writing…':kind==='wardrobe'?'Fit, styling ideas, outfit combinations, notes…':'Why this matters, next steps, milestones and what success looks like…'} aria-label={(kind==='note'||kind==='journal')?'Writing body':'Details'} />
+    {(kind==='note'||kind==='journal')&&draw&&<div className="drawing-section"><div className="drawing-tools"><strong>Handwriting</strong><div className="ink-actions"><button className="icon-btn" title="Pen" aria-label="Pen" aria-pressed={inkMode==='pen'} onClick={()=>setInkMode('pen')}><PenLine size={17}/></button><button className="icon-btn" title="Highlighter" aria-label="Highlighter" aria-pressed={inkMode==='highlighter'} onClick={()=>setInkMode('highlighter')}><Highlighter size={17}/></button><button className="icon-btn" title="Erase last stroke" aria-label="Erase last stroke" onClick={()=>{latest.current=latest.current.slice(0,-1);setStrokes(latest.current);}}><Eraser size={17}/></button><button className="icon-btn" title="Undo" aria-label="Undo" onClick={()=>{latest.current=latest.current.slice(0,-1);setStrokes(latest.current);}}><Undo2 size={17}/></button><input type="color" aria-label="Ink colour" value={inkColor} onChange={e=>setInkColor(e.target.value)}/></div></div><canvas className="note-canvas" ref={canvas} onPointerDown={start} onPointerMove={move} onPointerUp={stop} onPointerCancel={stop} aria-label="Freehand writing canvas for stylus or finger"/></div>}
+    <div className="studio-status" role="status">{status||'Changes save automatically while you write.'}</div>
    </>}
    </section>
   </div>
