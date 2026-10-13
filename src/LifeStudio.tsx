@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import { Check, ChevronLeft, FilePlus2, PenLine, Plus, Search, Trash2, X } from 'lucide-react';
+import { Check, ChevronLeft, FilePlus2, PenLine, Plus, Search, Trash2 } from 'lucide-react';
 import { supabase } from './lib/supabase';
 type Kind = 'note'|'wardrobe'|'goal';
 type Point = {x:number;y:number};
@@ -22,7 +22,6 @@ export function LifeStudio({session,kind}:Props){
  const canvas=useRef<HTMLCanvasElement>(null);
  const writing=useRef(false);
  const latest=useRef<Stroke[]>([]);
- const active=items.find(x=>x.id===selected)??null;
  useEffect(()=>{
   let mounted=true;setSelected(null);setDraft(null);setQuery('');setStatus('');
   if(!supabase)return;
