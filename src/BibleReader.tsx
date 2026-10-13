@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { BookOpen, ArrowLeft, ArrowRight, Search, RefreshCw, BookmarkPlus, Type } from 'lucide-react';
 
 const BOOKS = [
@@ -39,7 +39,7 @@ export function BibleReader({onAddReflection,initialReference='Psalm 23'}:Props)
     const next=nextBook+' '+chapterNumber;
     setQuery(next);setReference(next);
   }
-  function search(ev:React.FormEvent){
+  function search(ev:FormEvent){
     ev.preventDefault();const term=query.trim();
     if(!term)return;
     setReference(term);
