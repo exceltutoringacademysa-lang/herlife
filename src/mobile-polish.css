@@ -1,0 +1,66 @@
+/* HerLife mobile usability corrections from actual device captures (13 Oct 2026).
+   Keep native proportions, limit empty chrome, preserve proper tap targets. */
+.foreground-reminder-control{display:none!important}
+.reminder-header-button{flex:none;min-width:36px;min-height:36px;color:var(--muted)}
+.foreground-alert{position:fixed;z-index:22;right:18px;top:calc(70px + env(safe-area-inset-top));bottom:auto;max-width:min(350px,calc(100vw - 36px));border-radius:15px;box-shadow:0 12px 36px rgba(44,30,49,.16)}
+.modal .card-heading{display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:space-between!important;gap:10px;margin:0 0 15px}
+.modal .card-heading h2{font:600 23px/1.24 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;letter-spacing:-.6px!important;margin:0!important}
+.modal .card-heading>.icon-btn{display:grid!important;place-items:center;flex:0 0 42px;margin:0!important;min-height:42px;min-width:42px;border-radius:50%;background:var(--canvas);order:2}
+.modal .card-heading>.icon-btn:hover{background:var(--lavender)}
+.modal label{margin:13px 0!important}
+.modal .card-heading+.modal form{margin-top:0}
+@media(max-width:760px){
+ .topbar{height:56px!important;padding:0 17px!important}
+ .top-actions{gap:5px!important}
+ .top-actions .icon-btn{width:36px;height:36px}
+ .top-actions .avatar{width:34px;height:34px;font-size:14px}
+ .crumb{font-size:10px!important;letter-spacing:.08px!important;max-width:calc(100vw - 152px);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ .crumb svg{flex:0 0 auto}
+ .content{padding:19px 16px calc(102px + env(safe-area-inset-bottom))!important}
+ .welcome,.page-heading{margin-bottom:20px!important}
+ .welcome{padding:0!important}
+ .welcome .eyebrow,.page-heading .eyebrow{font-size:10px!important;letter-spacing:.7px!important}
+ .welcome h1{font:400 clamp(27px,7.3vw,33px)/1.15 Georgia,serif!important;letter-spacing:-.7px!important;margin:8px 0 7px!important}
+ .page-heading h1{font-size:clamp(30px,8vw,38px)!important;line-height:1.18!important;letter-spacing:-.7px!important}
+ .welcome>p:last-child,.page-heading>p:last-child{font-size:12px!important;line-height:1.4!important;margin:0!important}
+ .feature-grid{gap:10px!important;margin-bottom:10px!important}
+ .card{padding:17px!important;border-radius:16px!important;box-shadow:0 5px 20px rgba(35,22,39,.035)!important}
+ .card h2{font-size:23px!important;line-height:1.2!important;margin:10px 0 7px!important}
+ .card p{font-size:12px;line-height:1.5}
+ .daily-verse{min-height:0!important}
+ .daily-verse::before{top:18px!important;bottom:18px!important}
+ .daily-verse h2{font-size:25px!important;max-width:17em}
+ .daily-verse .scripture-ref{font-size:12px!important;margin:8px 0!important}
+ .daily-verse>p:not(.scripture-ref){margin:8px 0 12px!important}
+ .daily-verse .subtle-link{margin-top:4px;font-size:12px}
+ .overview-card{min-height:0!important}
+ .overview-card .progress-number{font-size:37px!important}
+ .home-glance{margin:20px 0 23px!important}
+ .home-quicklinks{margin:23px 0!important}
+ .home-quicklinks h2{font-size:22px!important}
+ .journal-intro{padding:20px!important}
+ .journal-intro>svg{width:21px;height:21px}
+ .journal-intro h2{font-size:25px!important;max-width:15em;line-height:1.2!important}
+ .journal-intro p{font-size:12px!important;line-height:1.5!important}
+ .journal-intro>.primary,.journal-intro>.secondary{font-size:12px;padding:10px 13px;min-height:42px;margin:4px 6px 0 0}
+ .mobile-tabbar{bottom:calc(8px + env(safe-area-inset-bottom))!important;left:12px!important;right:12px!important;padding:5px!important;border-radius:19px!important;box-shadow:0 9px 30px rgba(38,23,42,.12)!important}
+ .mobile-tabbar button{min-height:46px!important;border-radius:14px!important;gap:3px!important;font-size:10px!important;padding:5px 1px!important}
+ .mobile-tabbar svg{width:19px;height:19px}
+ .modal-layer{padding:12px!important;align-items:center}
+ .modal{width:100%!important;max-height:calc(100dvh - 30px)!important;border-radius:20px!important;padding:19px!important;overscroll-behavior:contain}
+ .modal .card-heading{margin:0 0 13px!important}
+ .modal .card-heading h2{font-size:20px!important}
+ .modal .card-heading>.icon-btn{width:40px;height:40px}
+ .modal form{display:flex;flex-direction:column;gap:5px}
+ .modal input,.modal textarea,.modal select{font-size:16px!important;margin-top:5px!important;min-height:45px}
+ .modal textarea{min-height:98px}
+ .modal .primary{width:100%;min-height:47px}
+ .foreground-alert{top:64px;right:12px}
+}
+@media(max-width:380px){
+ .topbar{padding:0 11px!important}
+ .crumb{font-size:9px!important}
+ .welcome h1{font-size:27px!important}
+ .home-glance-grid{gap:8px}
+ .glance-item{padding:12px!important}
+}
