@@ -11,6 +11,7 @@ import './games.css';
 import './arcade.css';
 import './mobile-polish.css';
 import './writing-paper.css';
+import './writing-workspace.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
