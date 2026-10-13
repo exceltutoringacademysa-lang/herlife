@@ -1,0 +1,158 @@
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import type { Session } from '@supabase/supabase-js';
+import { BookOpen, CalendarDays, Check, ChevronRight, CircleDollarSign, Heart, LayoutDashboard, ListChecks, LogOut, Menu, Moon, NotebookPen, Plus, Settings, Sparkles, Sun, Target, Trash2, Wallet, X } from 'lucide-react';
+import { BRAND, WEEKLY_READING_REFERENCES } from './brand';
+import { isConfigured, supabase } from './lib/supabase';
+
+type Section = 'home' | 'faith' | 'planner' | 'journal' | 'habits' | 'goals' | 'finances' | 'settings';
+type Entry = { id: string; kind: 'task'|'journal'|'habit'|'goal'|'transaction'|'prayer'|'quiet_time'; title: string; content: string; value: number; done: boolean; created_at: string; due_date: string|null };
+const nav = [
+  { id: 'home', label: 'Overview', icon: LayoutDashboard },
+  { id: 'faith', label: 'Faith & quiet time', icon: BookOpen },
+  { id: 'planner', label: 'My planner', icon: CalendarDays },
+  { id: 'journal', label: 'Private journal', icon: NotebookPen },
+  { id: 'habits', label: 'My habits', icon: ListChecks },
+  { id: 'goals', label: 'Future & goals', icon: Target },
+  { id: 'finances', label: 'My finances', icon: Wallet },
+  { id: 'settings', label: 'Settings', icon: Settings },
+] as const;
+const formatDate = (date: Date) => new Intl.DateTimeFormat('en-ZA', { weekday:'long', day:'numeric', month:'long', year:'numeric' }).format(date);
+const money = (n: number) => new Intl.NumberFormat('en-ZA', { style:'currency', currency: BRAND.currency }).format(n);
+const today = () => new Date().toLocaleDateString('en-CA');
+function greeting() { const h = new Date().getHours(); return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'; }
+function readRef() { const day = (new Date().getDay()+6)%7; return WEEKLY_READING_REFERENCES[day]; }
+
+export default function App() {
+  const [session, setSession] = useState<Session|null>(null);
+  const [loading, setLoading] = useState(true);
+  const [section, setSection] = useState<Section>('home');
+  const [entries, setEntries] = useState<Entry[]>([]);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [dark, setDark] = useState(() => localStorage.getItem('herlife-theme') === 'dark');
+  const [mobileMenu, setMobileMenu] = useState(false);
+  const [formOpen, setFormOpen] = useState<Entry['kind']|null>(null);
+  const [title, setTitle] = useState('');
+  const [content, setContent] = useState('');
+  const [value, setValue] = useState('');
+  const [date, setDate] = useState(today());
+  const [quietTime, setQuietTime] = useState('06:00');
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [register, setRegister] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => { document.documentElement.dataset.theme = dark ? 'dark' : 'light'; localStorage.setItem('herlife-theme', dark ? 'dark' : 'light'); }, [dark]);
+  useEffect(() => {
+    if (!supabase) { setLoading(false); return; }
+    supabase.auth.getSession().then(({data}) => { setSession(data.session); setLoading(false); });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, next) => setSession(next));
+    return () => subscription.unsubscribe();
+  }, []);
+  useEffect(() => {
+    if (!supabase || !session) { setEntries([]); return; }
+    let alive = true;
+    const client = supabase;
+    async function load() {
+      const { data, error: dbError } = await client.from('entries').select('*').order('created_at', { ascending: false });
+      if (!alive) return;
+      if (dbError) setError('Unable to load your private entries. Confirm the database migration has been applied.');
+      else setEntries((data ?? []) as Entry[]);
+    }
+    void load();
+    const { data: channel } = client.channel('private-entry-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'entries', filter: 'user_id=eq.' + session.user.id }, () => { void load(); }).subscribe();
+    return () => { alive = false; void client.removeChannel(channel); };
+  }, [session]);
+  useEffect(() => {
+    if (!session || !supabase) return;
+    const client = supabase;
+    client.from('preferences').select('quiet_time').eq('user_id', session.user.id).maybeSingle().then(({data}) => { if (data?.quiet_time) setQuietTime(data.quiet_time.slice(0,5)); });
+  }, [session]);
+
+  const groups = useMemo(() => ({
+    tasks: entries.filter(e=>e.kind==='task'),
+    habits: entries.filter(e=>e.kind==='habit'),
+    journal: entries.filter(e=>e.kind==='journal'),
+    goals: entries.filter(e=>e.kind==='goal'),
+    finances: entries.filter(e=>e.kind==='transaction'),
+    prayers: entries.filter(e=>e.kind==='prayer'),
+    quiet: entries.filter(e=>e.kind==='quiet_time'),
+  }), [entries]);
+  const todayTasks = groups.tasks.filter(e => e.due_date === today());
+  const balance = groups.finances.reduce((total,e)=>total + e.value,0);
+  const completed = todayTasks.filter(e=>e.done).length;
+  const open = (kind: Entry['kind']) => { setFormOpen(kind); setTitle(''); setContent(''); setValue(''); setDate(today()); setError(''); };
+  async function authenticate(ev: FormEvent) {
+    ev.preventDefault(); if (!supabase) return;
+    setBusy(true); setError(''); setNotice('');
+    const credentials = { email: authEmail.trim(), password: authPassword };
+    const { data, error: authError } = register ? await supabase.auth.signUp(credentials) : await supabase.auth.signInWithPassword(credentials);
+    setBusy(false);
+    if (authError) setError(authError.message);
+    else if (register && !data.session) setNotice('Check your email for a confirmation link, then sign in.');
+  }
+  async function addEntry(ev: FormEvent) {
+    ev.preventDefault(); if (!supabase || !session || !formOpen) return;
+    if (formOpen === 'transaction' && (!Number.isFinite(Number(value)) || Number(value) === 0)) { setError('Enter a non-zero amount; use a minus sign for spending.'); return; }
+    setBusy(true); setError('');
+    const { data, error: dbError } = await supabase.from('entries').insert({
+      user_id: session.user.id, kind: formOpen, title: title.trim() || (formOpen === 'quiet_time' ? 'Quiet time' : 'Untitled'),
+      content: content.trim(), value: formOpen === 'transaction' ? Number(value) : 0,
+      due_date: ['task','quiet_time'].includes(formOpen) ? date : null, done: false,
+    }).select('*').single();
+    setBusy(false);
+    if (dbError) { setError(dbError.message); return; }
+    setEntries(current => [data as Entry, ...current]); setFormOpen(null);
+  }
+  async function toggle(entry: Entry) {
+    if (!supabase) return;
+    const { error: dbError } = await supabase.from('entries').update({ done: !entry.done }).eq('id',entry.id);
+    if (dbError) setError(dbError.message);
+    else setEntries(current => current.map(e => e.id===entry.id ? {...e,done:!e.done}:e));
+  }
+  async function remove(entry: Entry) {
+    if (!supabase || !window.confirm('Delete this entry permanently?')) return;
+    const {error:dbError} = await supabase.from('entries').delete().eq('id',entry.id);
+    if (dbError) setError(dbError.message);
+    else setEntries(current=>current.filter(e=>e.id!==entry.id));
+  }
+  async function saveQuietTime(value: string) {
+    if (!supabase || !session) return;
+    setQuietTime(value);
+    const {error: dbError} = await supabase.from('preferences').upsert({user_id:session.user.id,quiet_time:value});
+    if (dbError) setError('Could not save your quiet-time preference.');
+    else setNotice('Quiet-time preference saved. Device alarms are not scheduled by this web app.');
+  }
+  function downloadData() {
+    const blob = new Blob([JSON.stringify({ exported_at: new Date().toISOString(), entries, quiet_time: quietTime },null,2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href=url; a.download='herlife-private-export.json'; a.click(); URL.revokeObjectURL(url);
+  }
+  const renderEntries = (list: Entry[], empty: string, checkable=false) => list.length ? <div className="entry-list">{list.map(entry=><article className="entry" key={entry.id}><div className="entry-main">{checkable && <button className={'check '+(entry.done?'checked':'')} aria-label={entry.done?'Mark incomplete':'Mark complete'} onClick={()=>toggle(entry)}>{entry.done&&<Check size={15}/>}</button>}<div><strong className={entry.done?'strike':''}>{entry.title}</strong>{entry.content&&<p className="muted small preserve">{entry.content}</p>}{entry.due_date&&<span className="tiny muted">{entry.due_date}</span>}{entry.kind==='transaction'&&<div className={'amount '+(entry.value<0?'expense':'income')}>{money(entry.value)}</div>}</div></div><button className="icon-btn" aria-label={'Delete '+entry.title} onClick={()=>remove(entry)}><Trash2 size={17}/></button></article>)}</div> : <p className="empty">{empty}</p>;
+  if (loading) return <div className="center-state">Opening {BRAND.appName}…</div>;
+  if (!isConfigured) return <div className="center-state"><div className="setup-panel"><div className="brand-mark">H</div><h1>HerLife</h1><p>The private application is not yet connected to its database. Configure Supabase in <code>.env.local</code> and apply the SQL migration before signing in.</p><p className="muted small">{BRAND.developerCredit}</p></div></div>;
+  if (!session) return <main className="auth-page"><section className="auth-intro"><span className="brand-logo"><span className="brand-mark">H</span>{BRAND.appName}</span><div><p className="eyebrow">A PERSONAL SPACE FOR INTENTIONAL LIVING</p><h1>Grow in grace.<br/>Live with purpose.</h1><p>A quieter place to plan your days, reflect on your journey, and build the future that matters to you.</p></div><p className="muted small">{BRAND.developerCredit}</p></section><section className="auth-box"><div className="auth-card"><p className="eyebrow">WELCOME TO HERLIFE</p><h2>{register?'Create your private space':'Welcome back'}</h2><p className="muted">{register?'Your next chapter begins here.':'Sign in to continue your journey.'}</p><form onSubmit={authenticate}><label>Email address<input type="email" required autoComplete="email" value={authEmail} onChange={e=>setAuthEmail(e.target.value)} placeholder="you@example.com"/></label><label>Password<input type="password" required minLength={6} autoComplete={register?'new-password':'current-password'} value={authPassword} onChange={e=>setAuthPassword(e.target.value)}/></label>{error&&<p className="error" role="alert">{error}</p>}{notice&&<p className="success" role="status">{notice}</p>}<button className="primary full" disabled={busy}>{busy?'Please wait…':register?'Create account':'Sign in'} <ChevronRight size={17}/></button></form><button className="text-button" onClick={()=>{setRegister(!register);setError('');setNotice('');}}>{register?'Already have an account? Sign in':'New here? Create an account'}</button></div></section></main>;
+
+  return <div className="app-shell">
+    <aside className={'sidebar '+(mobileMenu?'show':'')}>
+      <div className="sidebar-top"><div className="brand-logo"><span className="brand-mark">H</span>{BRAND.appName}</div><button className="mobile-only icon-btn" onClick={()=>setMobileMenu(false)} aria-label="Close menu"><X/></button></div>
+      <div className="side-caption">YOUR PERSONAL SPACE</div><nav aria-label="Main navigation">{nav.map(item=><button key={item.id} className={'nav-item '+(section===item.id?'active':'')} onClick={()=>{setSection(item.id);setMobileMenu(false);setError('');setNotice('');}}><item.icon size={19} strokeWidth={1.8}/><span>{item.label}</span></button>)}</nav>
+      <div className="sidebar-bottom"><div className="side-note"><Heart size={18}/><p>Small, faithful steps shape a meaningful life.</p></div><div className="credit">{BRAND.developerCredit}</div></div>
+    </aside>
+    {mobileMenu&&<button className="backdrop" aria-label="Close navigation" onClick={()=>setMobileMenu(false)}/>}
+    <div className="main-area"><header className="topbar"><button className="mobile-only icon-btn" aria-label="Open menu" onClick={()=>setMobileMenu(true)}><Menu/></button><span className="crumb">YOUR SPACE <ChevronRight size={13}/> {nav.find(n=>n.id===section)?.label.toUpperCase()}</span><div className="top-actions"><button className="icon-btn" aria-label="Toggle colour theme" onClick={()=>setDark(!dark)}>{dark?<Sun size={19}/>:<Moon size={19}/>}</button><div className="avatar" aria-label="Your personal account">A</div></div></header>
+    <main className="content">
+      {error&&<div className="alert error" role="alert">{error}<button onClick={()=>setError('')} aria-label="Dismiss error"><X size={16}/></button></div>}
+      {notice&&<div className="alert success" role="status">{notice}<button onClick={()=>setNotice('')} aria-label="Dismiss notice"><X size={16}/></button></div>}
+      {section==='home'&&<><div className="welcome"><p className="eyebrow">{formatDate(new Date()).toUpperCase()}</p><h1>{greeting()}, {BRAND.ownerFirstName}<span className="period">.</span></h1><p>A little intention today makes space for a meaningful tomorrow.</p></div><div className="feature-grid"><section className="card daily-verse"><div className="section-kicker"><BookOpen size={17}/> TODAY'S SCRIPTURE</div><h2>Make room for the Word.</h2><p className="scripture-ref">Today's reading · {readRef()}</p><p>Read the passage in your Bible, then spend a moment reflecting on what it means for your day.</p><button className="subtle-link" onClick={()=>setSection('faith')}>Begin quiet time <ChevronRight size={16}/></button></section><section className="card overview-card"><div className="section-kicker">TODAY AT A GLANCE</div><div className="progress-number">{completed}<span> / {todayTasks.length}</span></div><p className="muted">Today's priorities completed</p><div className="progress-track"><div style={{width:todayTasks.length?(completed/todayTasks.length*100)+'%':'0%'}}/></div><button className="subtle-link" onClick={()=>setSection('planner')}>View your planner <ChevronRight size={16}/></button></section></div><div className="stat-grid"><button className="stat-card" onClick={()=>setSection('habits')}><ListChecks/><span className="stat-number">{groups.habits.filter(e=>e.done).length}/{groups.habits.length}</span><span>Habits checked</span></button><button className="stat-card" onClick={()=>setSection('journal')}><NotebookPen/><span className="stat-number">{groups.journal.length}</span><span>Journal reflections</span></button><button className="stat-card" onClick={()=>setSection('goals')}><Target/><span className="stat-number">{groups.goals.length}</span><span>Personal goals</span></button></div><section className="card section-card"><div className="card-heading"><div><p className="section-kicker">A FOCUSED DAY</p><h2>Today's priorities</h2></div><button className="secondary" onClick={()=>open('task')}><Plus size={17}/> Add task</button></div>{renderEntries(todayTasks,'No priorities scheduled for today. Add one thing you would like to accomplish.',true)}</section></>}
+      {section==='faith'&&<><Heading kicker="THE SPIRITUAL LIFE" title="Faith & quiet time" subtitle="A gentle rhythm of scripture, prayer and reflection."/ ><div className="feature-grid"><section className="card daily-verse"><div className="section-kicker"><BookOpen size={17}/> TODAY'S READING</div><h2>{readRef()}</h2><p>Open this passage in your Bible. What is God teaching you through it today?</p><p className="tiny muted">Reading references are not quoted scripture or an integrated Bible translation.</p><button className="primary" onClick={()=>open('quiet_time')}><Plus size={17}/> Record quiet time</button></section><section className="card"><div className="section-kicker">YOUR ROUTINE</div><h2>Quiet-time intention</h2><p className="muted">Your preferred start time</p><input aria-label="Preferred quiet time" type="time" value={quietTime} onChange={e=>setQuietTime(e.target.value)}/><button className="secondary save-button" onClick={()=>saveQuietTime(quietTime)}>Save preference</button><p className="tiny muted">This is a saved preference, not a phone alarm or push notification.</p></section></div><section className="card section-card"><div className="card-heading"><h2>Prayer journal</h2><button className="secondary" onClick={()=>open('prayer')}><Plus size={17}/> Write prayer</button></div>{renderEntries(groups.prayers,'Your prayers are private. Write one when you are ready.')}</section><section className="card section-card"><h2>Quiet-time history</h2>{renderEntries(groups.quiet,'No quiet-time sessions recorded yet.')}</section></>}
+      {section==='planner'&&<><Heading kicker="PLAN WITH PURPOSE" title="My planner" subtitle="Give your priorities a place in your day."/><section className="card section-card"><div className="card-heading"><h2>Tasks & important dates</h2><button className="primary" onClick={()=>open('task')}><Plus size={17}/> New task</button></div>{renderEntries(groups.tasks,'A clear day starts with a simple plan. Add your first task.',true)}</section></>}
+      {section==='journal'&&<><Heading kicker="A PRIVATE PLACE TO REFLECT" title="Your journal" subtitle="Your thoughts are yours. Write with honesty, hope and freedom."/><section className="card journal-intro"><NotebookPen size={24}/><h2>What has been on your heart lately?</h2><p>You could begin with gratitude, a lesson learned, or something you are praying about.</p><button className="primary" onClick={()=>open('journal')}><Plus size={17}/> Write an entry</button></section><section className="card section-card"><h2>Previous reflections</h2>{renderEntries(groups.journal,'Your reflections will appear here after you write your first entry.')}</section></>}
+      {section==='habits'&&<><Heading kicker="SMALL STEPS, LASTING CHANGE" title="My habits" subtitle="Build a life of consistency without pressure or perfection."/><section className="card section-card"><div className="card-heading"><h2>Routines to practise</h2><button className="primary" onClick={()=>open('habit')}><Plus size={17}/> New habit</button></div><p className="tiny muted">Checking a habit marks it complete until you change it. Daily resets and streaks are not implemented yet.</p>{renderEntries(groups.habits,'Create a habit you would like to build.',true)}</section></>}
+      {section==='goals'&&<><Heading kicker="BECOMING, DAY BY DAY" title="Future & goals" subtitle="Dream thoughtfully. Move forward one practical step at a time."/><section className="card section-card"><div className="card-heading"><h2>What you're working towards</h2><button className="primary" onClick={()=>open('goal')}><Plus size={17}/> New goal</button></div>{renderEntries(groups.goals,'A goal can begin with just one sentence.',true)}</section></>}
+      {section==='finances'&&<><Heading kicker="FINANCIAL WELLBEING" title="My finances" subtitle="Understand what comes in, what goes out, and what you can plan for."/><div className="feature-grid"><section className="card"><p className="section-kicker">NET RECORDED CASH FLOW</p><h2 className="balance">{money(balance)}</h2><p className="muted small">Sum of recorded income and expenses, not a verified bank balance.</p></section><section className="card"><p className="section-kicker">MONEY HABITS</p><h2>Start with awareness.</h2><p className="muted">Record amounts carefully, review your spending, and set aside what you can.</p></section></div><section className="card section-card"><div className="card-heading"><h2>Transactions</h2><button className="primary" onClick={()=>open('transaction')}><Plus size={17}/> Add transaction</button></div><p className="tiny muted">Use positive values for income and negative values for expenses. Currency: ZAR.</p>{renderEntries(groups.finances,'No transactions recorded. Start with an income or expense.')}</section></>}
+      {section==='settings'&&<><Heading kicker="MADE FOR YOUR JOURNEY" title="Settings" subtitle="Choose what feels comfortable while keeping your space secure."/><section className="card section-card settings-list"><div className="setting-row"><div><h3>Appearance</h3><p className="muted">A consistent purple identity in light and dark themes.</p></div><button className="secondary" onClick={()=>setDark(!dark)}>{dark?'Light mode':'Dark mode'}</button></div><div className="setting-row"><div><h3>Private data export</h3><p className="muted">Download your entries as a JSON file.</p></div><button className="secondary" onClick={downloadData}>Export entries</button></div><div className="setting-row"><div><h3>Account</h3><p className="muted">Signed in as {session.user.email}</p></div><button className="secondary" onClick={()=>supabase?.auth.signOut()}><LogOut size={16}/> Sign out</button></div><div className="setting-row"><div><h3>About {BRAND.appName}</h3><p className="muted">{BRAND.tagline}</p><p className="tiny muted">{BRAND.developerCredit}</p></div></div></section></>}
+    </main></div>
+    {formOpen&&<div className="modal-layer" role="presentation" onMouseDown={ev=>{if(ev.target===ev.currentTarget)setFormOpen(null);}}><div className="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title"><div className="card-heading"><h2 id="modal-title">{formOpen==='transaction'?'Add a transaction':formOpen==='quiet_time'?'Record quiet time':'Add '+formOpen.replace('_',' ')}</h2><button className="icon-btn" aria-label="Close" onClick={()=>setFormOpen(null)}><X size={20}/></button></div><form onSubmit={addEntry}><label>{formOpen==='journal'?'Entry title':formOpen==='transaction'?'Description':'Title'}<input required={formOpen!=='quiet_time'} maxLength={180} value={title} onChange={ev=>setTitle(ev.target.value)} placeholder="Give it a meaningful name"/></label><label>{formOpen==='transaction'?'Notes (optional)':'Notes & reflections'}<textarea rows={4} maxLength={12000} value={content} onChange={ev=>setContent(ev.target.value)} placeholder="Write something meaningful…"/></label>{formOpen==='transaction'&&<label>Amount (ZAR; negative for expense)<input type="number" step="0.01" required value={value} onChange={ev=>setValue(ev.target.value)} placeholder="-125.00"/></label>}{['task','quiet_time'].includes(formOpen)&&<label>Date<input type="date" required value={date} onChange={ev=>setDate(ev.target.value)}/></label>}{error&&<p className="error" role="alert">{error}</p>}<button className="primary full" disabled={busy}>{busy?'Saving…':'Save privately'} <Check size={17}/></button></form></div></div>}
+  </div>;
+}
+function Heading({kicker,title,subtitle}:{kicker:string;title:string;subtitle:string}){return <div className="page-heading"><p className="eyebrow">{kicker}</p><h1>{title}<span className="period">.</span></h1><p>{subtitle}</p></div>;}
