@@ -1,0 +1,30 @@
+/* Notes and Journal: clean writing space without decorative outlines or ruling. */
+.life-studio .studio-layout{border:0!important;border-radius:0!important;box-shadow:none!important;backdrop-filter:none!important;background:var(--surface)!important}
+.life-studio .studio-index{background:var(--surface)!important}
+.life-studio .studio-paper{background:var(--surface)!important;box-shadow:none!important;border:0!important}
+.life-studio .studio-search{border:0!important;background:var(--canvas)!important}
+.life-studio .studio-list-item.active{background:var(--canvas)!important;box-shadow:none!important}
+.life-studio .studio-title{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-weight:700;border:0!important;background:transparent!important}
+.life-studio .studio-body.note-page{border:0!important;background:transparent!important;min-height:65vh;line-height:1.7;padding:12px 0}
+.life-studio .drawing-section{border:0!important}
+.life-studio .note-canvas{height:65vh;background:#fff!important;background-image:none!important;border:0!important;border-radius:0!important}
+.life-studio .studio-status{border:0!important}
+.ink-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.ink-actions .icon-btn{min-width:38px;min-height:38px;background:var(--canvas);border-radius:10px}
+.ink-actions [aria-pressed=true]{background:var(--lavender);color:var(--purple)}
+.ink-actions input[type=color]{width:36px;height:36px;padding:1px;border:0;background:transparent}
+.journal-intro{background:var(--surface)!important;border:0!important;box-shadow:none!important;backdrop-filter:none!important}
+.journal-writing-modal{border:0!important;background:var(--surface)!important}
+.journal-writing-modal textarea{background:var(--surface)!important;background-image:none!important;border:0!important;box-shadow:none!important;outline:0!important;line-height:1.75}
+@media(max-width:760px){
+.life-studio .studio-layout{overflow:visible;min-height:0}
+.life-studio .studio-index{max-height:150px;border-right:0!important}
+.life-studio .studio-paper{padding:14px 2px!important}
+.life-studio .studio-toolbar{flex-wrap:wrap;margin-bottom:12px}
+.life-studio .studio-toolbar .primary,.life-studio .studio-toolbar .secondary{padding:7px 10px;font-size:12px;min-height:39px}
+.life-studio .studio-body.note-page{min-height:58vh}
+.life-studio .note-canvas{height:55vh}
+.journal-intro{padding:15px 0!important}
+.journal-writing-modal{height:calc(100dvh - 20px)!important;max-height:calc(100dvh - 20px)!important;padding:17px!important}
+.journal-writing-modal textarea{min-height:50dvh!important}
+}
