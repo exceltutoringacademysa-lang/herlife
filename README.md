@@ -18,36 +18,39 @@ HerLife is a personal, Christian faith-centred life companion. The application u
 - Monetary calculations using integer cents, JSON data export, responsive purple light/dark design
 - PostgreSQL Row Level Security (RLS) protecting every personal record
 
-## Required setup (in order)
+## One-person private access
 
-1. Install Node.js 20 or later. Run `npm install`.
-2. Create a Supabase project. In the Supabase SQL editor, run **all three** migration files in this order:
-   - `supabase/migrations/20261013000000_initial.sql`
-   - `supabase/migrations/20261014000000_habit_checkins.sql`
-   - `supabase/migrations/20261015000000_private_access.sql`
-3. Copy `.env.example` to `.env.local` and populate `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` with the Supabase project URL and **public** anonymous/publishable key. Never use a service-role or secret key in client environment variables.
-4. In Supabase Auth, configure permitted site/redirect URLs (including the exact application origin for reset links), email confirmation, an appropriate minimum password length and rate limits. Configure invite-only registration or disable open sign-up for final private delivery.
-5. Run `npm run dev`. Sign up or invite the intended user using Supabase Auth; confirm their email. Initial accounts are **not** automatically approved to access personal records.
-6. As the project administrator in the Supabase SQL editor, approve only the intended account **after verifying the email**. Replace the placeholder below locally. Do not commit the email, personal identifiers, or resulting SQL into the public repository:
+HerLife is designed for a single invited owner, not general registration. The public **Create Account** option and the **Awaiting approval** screen are removed from the interface.
+
+**Important:** Hiding registration on the frontend does not disable the Supabase signup API. Before the private handover, open the project's **Authentication → Sign In / Providers → Email** settings and switch off **Allow new users to sign up** (the wording may differ). Keep email/password sign-in and email confirmation enabled. This change must be saved in Supabase's dashboard; the repository cannot enforce it.
+
+The backend intentionally retains the `public.app_members` allowlist in its RLS policies: it is an internal account-binding safeguard, **not a user approval or request process**. The one-time owner assignment should be done by the administrator as part of account setup, not by the recipient. Do not remove those RLS predicates or expose their administration to the browser.
+
+### Initial owner handover
+
+1. Run all three SQL migration files in `supabase/migrations` in order if setting up a new database. They are already applied in the initial hosted HerLife project; do not rerun them.
+2. Configure `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` through Vercel environment variables, never as committed secrets.
+3. Invite or create the **intended owner's** account using **Supabase Authentication → Users → Add user / Send invitation**. Only an owner-controlled email address should be used; the recipient sets her own password. Confirm the email before allowing access. If email delivery is limited, configure a trusted SMTP provider rather than turning off confirmation.
+4. In the Supabase SQL Editor, an administrator can bind the verified owner's existing Supabase account to HerLife's internal allowlist. Substitute the email privately in the SQL Editor — never commit it:
 
    ```sql
    insert into public.app_members (user_id)
    select id from auth.users
-   where email = '<verified private account email>'
+   where lower(email) = lower('<intended owner's verified email>')
      and email_confirmed_at is not null
    on conflict (user_id) do nothing;
    ```
 
-7. Sign out and back in, then verify the private dashboard is accessible only to the approved user. An unapproved user must see **Private access awaiting approval** and must not be able to query the private records even with direct API requests.
-8. Check `npm run build` and `npm test`; publish the built `dist/` site over HTTPS only after verifying security and setting up backups.
+5. Once the intended owner's account can sign in successfully and her data is verified, **revoke any test account's access** from `public.app_members` using the administrator's SQL Editor. Do not delete real user content inadvertently; separately review test accounts in **Authentication → Users**. Keep only the intended owner in the allowlist.
+6. Test unauthorized accounts (including direct API requests) to confirm that all personal tables deny access. Test journal and calendar persistence, sign-out and password recovery. A successful frontend build alone is not a security audit.
 
-For the single-user private launch, consider using an administrator-created Auth invitation rather than allowing public sign-up. Hiding the registration button alone is **not** an effective access-control mechanism; only backend Auth controls and SQL membership policies prevent unauthorised access.
+The recipient will only encounter the **Sign in** form and her own dashboard: there is no approval queue, registration, or visible account provisioning workflow.
 
 ## Privacy and release checklist
 
 This repository is public. Do not commit account email addresses, the recipient's full name, photos, journal content, passwords, API secrets or financial data. Personalisation should remain restricted to private authenticated areas. The developer attribution must remain exactly **Developed by Andzani Mashabana**.
 
-Test row ownership and administrator approval with **at least two accounts**, including attempted direct API reads/updates of another account's records. Confirm password recovery and email confirmation URLs, carefully configure backups, and complete production security/accessibility reviews. A passing frontend build does not prove production security.
+Test row ownership and the private owner allowlist with **at least two accounts**, including attempted direct API reads/updates of another account's records. Confirm password recovery and email confirmation URLs, carefully configure backups, and complete production security/accessibility reviews. A passing frontend build does not prove production security.
 
 ## Explicit limitations
 
@@ -57,7 +60,7 @@ Test row ownership and administrator approval with **at least two accounts**, in
 - Daily habit completions are saved; streak reporting and advanced routine scheduling are not built.
 - Transaction totals are manual net cash flows, not bank balances or a complete category-based budget.
 - Wardrobe, grocery planner, personal development courses, Bible browsing and native alarm support remain future implementation phases.
-- Supabase configuration, live deployment, production security tests and external integrations are not provisioned by this repository.
+- Production security tests and certain external integrations have not been completed. Supabase/Vercel hosted access must be verified before private handover.
 
 ## Testing and development
 
@@ -67,19 +70,9 @@ Next phases: database integration and privacy checks; recurring planners and jou
 
 HerLife must always remain purple-led, private by default, gentle in tone, and free of AI-generated features and AI-styled visual gimmicks.
 
-## Connecting the deployed website
+## Hosting
 
-After the application branch is reviewed and merged into `main`:
-
-1. Import the HerLife GitHub repository into a Vite-compatible static web host such as Vercel.
-2. In the host's **Environment Variables** settings, add `VITE_SUPABASE_URL` (the project URL) and `VITE_SUPABASE_PUBLISHABLE_KEY` (the browser-safe `sb_publishable_...` key). Choose the correct deployment environment and redeploy.
-3. Do **not** set `VITE_SUPABASE_SECRET_KEY`, `service_role` or the database password anywhere in the frontend. `VITE_` values are bundled into public browser JavaScript.
-4. In Supabase **Authentication → URL Configuration**, set the host's HTTPS URL as the Site URL and add its permitted HTTPS redirect URL (and localhost origin for local tests).
-5. Sign in using a verified account. Until the administrator adds the account ID to `public.app_members`, the user will see an **Awaiting approval** screen. The admin must approve the verified account through the Supabase SQL editor, as described above.
-6. Verify signup/confirmation, password recovery, private RLS reads/writes, and sign-out on the deployed URL.
-
-No environment keys should be pasted into GitHub source files, issues, pull-request comments, screenshots or ChatGPT messages. Set them only in your hosting platform's environment-variable interface.
-
+The Vite application is connected to GitHub and deployed to a Vercel HTTPS address with browser-safe Supabase credentials. Supabase Authentication's Site URL and Redirect URLs must match the actual HTTPS domain. Keep the private account access restrictions described above in place.
 
 ## Installable website (PWA foundation)
 
