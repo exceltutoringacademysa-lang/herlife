@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, Heart, Pause, Play, SkipForward, Volume2, VolumeX, X } from 'lucide-react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase';
-import { memoryCaption } from './memoryStory';
+import { memoryCaption, memoryStory } from './memoryStory';
 
 type Scene = { name:string; url:string; type:'photo'|'video' };
 const headings=[
@@ -31,27 +31,22 @@ export function MemoryFilm({session,onClose,firstVisit=false,onFinished}:{sessio
   const video=useRef<HTMLVideoElement|null>(null);
   const current=scenes[index];
   useEffect(()=>{
-    let active=true;
-    async function load(){
-      if(!supabase)return;
-      // Storage has no public read policy. Every media URL expires.
-      const path=session.user.id;
-      const {data:files,error:listError}=await supabase.storage.from('herlife-memories').list(path,{limit:100,sortBy:{column:'name',order:'asc'}});
-      if(!active)return;
-      if(listError){setError('Unable to load private memories. Please try later.');setLoading(false);return;}
-      const supported=(files??[]).filter(f=>/\.(jpe?g|png|webp|mp4|webm|mp3|m4a)$/i.test(f.name));
-      const results=await Promise.all(supported.map(async f=>{
-        const signed=await supabase!.storage.from('herlife-memories').createSignedUrl(path+'/'+f.name,3600);
-        return {name:f.name,url:signed.data?.signedUrl||'',type:/\.(mp4|webm)$/i.test(f.name)?'video':'photo'} as Scene;
-      }));
-      if(!active)return;
-      setSoundtrack(results.find(f=>/\.(mp3|m4a)$/i.test(f.name))?.url||'');
-      setScenes(results.filter(f=>f.url && !/\.(mp3|m4a)$/i.test(f.name)));
-      setLoading(false);
-    }
-    void load();
-    return ()=>{active=false;};
-  },[session.user.id]);
+    // Website-hosted media: all assets are committed under public/memories/.
+    // Anyone with the URL can access these files, as explicitly requested.
+    const controller = new AbortController();
+    fetch('/memories/001-memory.jpg',{method:'HEAD',signal:controller.signal})
+      .then(response=>{
+        if(!response.ok)throw new Error('Memory photos are not on the website yet.');
+        setScenes(memoryStory.map(item=>({
+          name:item.file,
+          url:'/memories/'+encodeURIComponent(item.file),
+          type:item.file.endsWith('.mp4')?'video':'photo'
+        })));
+        setSoundtrack('/memories/soundtrack.mp3');
+      }).catch(()=>setError('The memory files have not been uploaded to GitHub yet.'))
+      .finally(()=>setLoading(false));
+    return ()=>controller.abort();
+  },[]);
   useEffect(()=>{
     if(!playing||index<0||!current)return;
     if(current.type==='video'){
