@@ -46,13 +46,19 @@ export default function App() {
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [register, setRegister] = useState(false);
+  const [resetRequest, setResetRequest] = useState(false);
+  const [recoveringPassword, setRecoveringPassword] = useState(false);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => { document.documentElement.dataset.theme = dark ? 'dark' : 'light'; localStorage.setItem('herlife-theme', dark ? 'dark' : 'light'); }, [dark]);
   useEffect(() => {
     if (!supabase) { setLoading(false); return; }
     supabase.auth.getSession().then(({data}) => { setSession(data.session); setLoading(false); });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, next) => setSession(next));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, next) => {
+      setSession(next);
+      if (event === 'PASSWORD_RECOVERY') setRecoveringPassword(true);
+      if (event === 'SIGNED_OUT') setRecoveringPassword(false);
+    });
     return () => subscription.unsubscribe();
   }, []);
   useEffect(() => {
@@ -109,6 +115,23 @@ export default function App() {
     if (authError) setError(authError.message);
     else if (register && !data.session) setNotice('Check your email for a confirmation link, then sign in.');
   }
+  async function emailPasswordReset(ev: FormEvent) {
+    ev.preventDefault(); if (!supabase) return;
+    setBusy(true); setError(''); setNotice('');
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(authEmail.trim(), { redirectTo: window.location.origin });
+    setBusy(false);
+    if (resetError) setError(resetError.message);
+    else setNotice('If the address has an account, a password-reset email will be sent. Check your inbox.');
+  }
+  async function updatePassword(ev: FormEvent) {
+    ev.preventDefault(); if (!supabase) return;
+    setBusy(true); setError(''); setNotice('');
+    if (authPassword.length < 12) { setBusy(false); setError('Use a password of at least 12 characters.'); return; }
+    const { error: updateError } = await supabase.auth.updateUser({ password: authPassword });
+    setBusy(false);
+    if (updateError) setError(updateError.message);
+    else { setRecoveringPassword(false); setAuthPassword(''); setNotice('Your password has been updated.'); }
+  }
   async function addEntry(ev: FormEvent) {
     ev.preventDefault(); if (!supabase || !session || !formOpen) return;
     const parsedAmount = formOpen === 'transaction' ? parseTransactionAmount(value) : 0;
@@ -164,7 +187,11 @@ export default function App() {
   })}</div> : <p className="empty">{empty}</p>;
   if (loading) return <div className="center-state">Opening {BRAND.appName}…</div>;
   if (!isConfigured) return <div className="center-state"><div className="setup-panel"><div className="brand-mark">H</div><h1>HerLife</h1><p>The private application is not yet connected to its database. Configure Supabase in <code>.env.local</code> and apply the SQL migration before signing in.</p><p className="muted small">{BRAND.developerCredit}</p></div></div>;
-  if (!session) return <main className="auth-page"><section className="auth-intro"><span className="brand-logo"><span className="brand-mark">H</span>{BRAND.appName}</span><div><p className="eyebrow">A PERSONAL SPACE FOR INTENTIONAL LIVING</p><h1>Grow in grace.<br/>Live with purpose.</h1><p>A quieter place to plan your days, reflect on your journey, and build the future that matters to you.</p></div><p className="muted small">{BRAND.developerCredit}</p></section><section className="auth-box"><div className="auth-card"><p className="eyebrow">WELCOME TO HERLIFE</p><h2>{register?'Create your private space':'Welcome back'}</h2><p className="muted">{register?'Your next chapter begins here.':'Sign in to continue your journey.'}</p><form onSubmit={authenticate}><label>Email address<input type="email" required autoComplete="email" value={authEmail} onChange={e=>setAuthEmail(e.target.value)} placeholder="you@example.com"/></label><label>Password<input type="password" required minLength={6} autoComplete={register?'new-password':'current-password'} value={authPassword} onChange={e=>setAuthPassword(e.target.value)}/></label>{error&&<p className="error" role="alert">{error}</p>}{notice&&<p className="success" role="status">{notice}</p>}<button className="primary full" disabled={busy}>{busy?'Please wait…':register?'Create account':'Sign in'} <ChevronRight size={17}/></button></form><button className="text-button" onClick={()=>{setRegister(!register);setError('');setNotice('');}}>{register?'Already have an account? Sign in':'New here? Create an account'}</button></div></section></main>;
+  if (recoveringPassword && session) return <main className="auth-page">
+    <section className="auth-intro"><span className="brand-logo"><span className="brand-mark">H</span>{BRAND.appName}</span><div><p className="eyebrow">SECURE ACCESS</p><h1>A new beginning.</h1><p>Choose a strong password to keep your private space protected.</p></div><p className="muted small">{BRAND.developerCredit}</p></section>
+    <section className="auth-box"><div className="auth-card"><p className="eyebrow">ACCOUNT RECOVERY</p><h2>Create a new password</h2><form onSubmit={updatePassword}><label>New password (12 or more characters)<input type="password" minLength={12} autoComplete="new-password" required value={authPassword} onChange={e=>setAuthPassword(e.target.value)}/></label>{error&&<p className="error" role="alert">{error}</p>}<button className="primary full" disabled={busy}>{busy?'Updating…':'Update password'}</button></form><button className="text-button" onClick={()=>supabase?.auth.signOut()}>Cancel and sign out</button></div></section>
+  </main>;
+  if (!session) return <main className="auth-page"><section className="auth-intro"><span className="brand-logo"><span className="brand-mark">H</span>{BRAND.appName}</span><div><p className="eyebrow">A PERSONAL SPACE FOR INTENTIONAL LIVING</p><h1>Grow in grace.<br/>Live with purpose.</h1><p>A quieter place to plan your days, reflect on your journey, and build the future that matters to you.</p></div><p className="muted small">{BRAND.developerCredit}</p></section><section className="auth-box"><div className="auth-card"><p className="eyebrow">WELCOME TO HERLIFE</p><h2>{resetRequest?'Reset your password':register?'Create your private space':'Welcome back'}</h2><p className="muted">{resetRequest?'Enter your account email to request a secure reset link.':register?'Your next chapter begins here.':'Sign in to continue your journey.'}</p><form onSubmit={resetRequest?emailPasswordReset:authenticate}><label>Email address<input type="email" required autoComplete="email" value={authEmail} onChange={e=>setAuthEmail(e.target.value)} placeholder="you@example.com"/></label>{!resetRequest&&<label>Password<input type="password" required minLength={6} autoComplete={register?'new-password':'current-password'} value={authPassword} onChange={e=>setAuthPassword(e.target.value)}/></label>}{error&&<p className="error" role="alert">{error}</p>}{notice&&<p className="success" role="status">{notice}</p>}<button className="primary full" disabled={busy}>{busy?'Please wait…':resetRequest?'Email reset link':register?'Create account':'Sign in'} <ChevronRight size={17}/></button></form><button className="text-button" onClick={()=>{setError('');setNotice('');if(resetRequest){setResetRequest(false);} else {setRegister(!register);}}}>{resetRequest?'Back to sign in':register?'Already have an account? Sign in':'New here? Create an account'}</button>{!register&&!resetRequest&&<button className="text-button" onClick={()=>{setResetRequest(true);setError('');setNotice('');}}>Forgot your password?</button>}</div></section></main>;
 
   return <div className="app-shell">
     <aside className={'sidebar '+(mobileMenu?'show':'')}>
