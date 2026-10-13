@@ -1,12 +1,12 @@
 {
   "name": "HerLife",
   "short_name": "HerLife",
-  "description": "Grow in grace. Live with purpose. Build your future.",
+  "description": "A personal space for faith, memories and everyday life.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#faf9fb",
-  "theme_color": "#48286b",
+  "background_color": "#f7f5f4",
+  "theme_color": "#523c53",
   "icons": [
     {
       "src": "/icon.svg",
