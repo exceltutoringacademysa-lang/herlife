@@ -25,7 +25,7 @@ HerLife is a personal, Christian faith-centred life companion. The application u
    - `supabase/migrations/20261013000000_initial.sql`
    - `supabase/migrations/20261014000000_habit_checkins.sql`
    - `supabase/migrations/20261015000000_private_access.sql`
-3. Copy `.env.example` to `.env.local` and populate `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` with the Supabase project URL and **public** anonymous/publishable key. Never use a service-role or secret key in client environment variables.
+3. Copy `.env.example` to `.env.local` and populate `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` with the Supabase project URL and **public** anonymous/publishable key. Never use a service-role or secret key in client environment variables.
 4. In Supabase Auth, configure permitted site/redirect URLs (including the exact application origin for reset links), email confirmation, an appropriate minimum password length and rate limits. Configure invite-only registration or disable open sign-up for final private delivery.
 5. Run `npm run dev`. Sign up or invite the intended user using Supabase Auth; confirm their email. Initial accounts are **not** automatically approved to access personal records.
 6. As the project administrator in the Supabase SQL editor, approve only the intended account **after verifying the email**. Replace the placeholder below locally. Do not commit the email, personal identifiers, or resulting SQL into the public repository:
@@ -66,3 +66,16 @@ GitHub Actions runs the TypeScript/Vite build and Vitest regression suite on pul
 Next phases: database integration and privacy checks; recurring planners and journaling tools; licensed Bible integration; grocery and wardrobe management; savings, financial learning and future-planning modules; native-device notifications only after evaluating platform guarantees.
 
 HerLife must always remain purple-led, private by default, gentle in tone, and free of AI-generated features and AI-styled visual gimmicks.
+
+## Connecting the deployed website
+
+After the application branch is reviewed and merged into `main`:
+
+1. Import the HerLife GitHub repository into a Vite-compatible static web host such as Vercel.
+2. In the host's **Environment Variables** settings, add `VITE_SUPABASE_URL` (the project URL) and `VITE_SUPABASE_PUBLISHABLE_KEY` (the browser-safe `sb_publishable_...` key). Choose the correct deployment environment and redeploy.
+3. Do **not** set `VITE_SUPABASE_SECRET_KEY`, `service_role` or the database password anywhere in the frontend. `VITE_` values are bundled into public browser JavaScript.
+4. In Supabase **Authentication → URL Configuration**, set the host's HTTPS URL as the Site URL and add its permitted HTTPS redirect URL (and localhost origin for local tests).
+5. Sign in using a verified account. Until the administrator adds the account ID to `public.app_members`, the user will see an **Awaiting approval** screen. The admin must approve the verified account through the Supabase SQL editor, as described above.
+6. Verify signup/confirmation, password recovery, private RLS reads/writes, and sign-out on the deployed URL.
+
+No environment keys should be pasted into GitHub source files, issues, pull-request comments, screenshots or ChatGPT messages. Set them only in your hosting platform's environment-variable interface.
