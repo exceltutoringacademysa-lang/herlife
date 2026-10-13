@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import { BookOpen, CalendarDays, Check, ChevronRight, CircleDollarSign, Heart, LayoutDashboard, ListChecks, LogOut, Menu, Moon, NotebookPen, Plus, Settings, Sparkles, Sun, Target, Trash2, Wallet, X } from 'lucide-react';
+import { BookOpen, CalendarDays, Check, ChevronRight, Heart, LayoutDashboard, ListChecks, LogOut, Menu, Moon, NotebookPen, Plus, Settings, Sun, Target, Trash2, Wallet, X } from 'lucide-react';
 import { BRAND, WEEKLY_READING_REFERENCES } from './brand';
 import { isConfigured, supabase } from './lib/supabase';
 
