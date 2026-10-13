@@ -60,7 +60,7 @@ export default function App() {
       else setEntries((data ?? []) as Entry[]);
     }
     void load();
-    const { data: channel } = client.channel('private-entry-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'entries', filter: 'user_id=eq.' + session.user.id }, () => { void load(); }).subscribe();
+    const channel = client.channel('private-entry-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'entries', filter: 'user_id=eq.' + session.user.id }, () => { void load(); }).subscribe();
     return () => { alive = false; void client.removeChannel(channel); };
   }, [session]);
   useEffect(() => {
