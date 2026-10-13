@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import { Check, ChevronLeft, FilePlus2, PenLine, Plus, Search, Trash2 } from 'lucide-react';
+import { Check, ChevronLeft, FilePlus2, PenLine, Plus, Search, Trash2, Undo2, Highlighter, Eraser } from 'lucide-react';
 import { supabase } from './lib/supabase';
 type Kind = 'note'|'wardrobe'|'goal';
 type Point = {x:number;y:number};
@@ -19,6 +19,8 @@ export function LifeStudio({session,kind}:Props){
  const [query,setQuery]=useState('');
  const [draw,setDraw]=useState(false);
  const [strokes,setStrokes]=useState<Stroke[]>([]);
+ const [inkMode,setInkMode]=useState<'pen'|'highlighter'|'eraser'>('pen');
+ const [inkColor,setInkColor]=useState('#403544');
  const canvas=useRef<HTMLCanvasElement>(null);
  const writing=useRef(false);
  const latest=useRef<Stroke[]>([]);
@@ -47,7 +49,7 @@ export function LifeStudio({session,kind}:Props){
    node.width=Math.floor(bounds.width*ratio);node.height=Math.floor(bounds.height*ratio);
    context.setTransform(ratio,0,0,ratio,0,0);
    context.clearRect(0,0,bounds.width,bounds.height);
-   context.strokeStyle='#403544';context.lineWidth=2.2;context.lineCap='round';context.lineJoin='round';
+   context.strokeStyle=inkColor;context.lineWidth=inkMode==='highlighter'?8:2.2;context.lineCap='round';context.lineJoin='round';
    for(const stroke of latest.current){
     if(!stroke.length)continue;
     context.beginPath();
@@ -58,7 +60,7 @@ export function LifeStudio({session,kind}:Props){
    }
   };
   render();const obs=new ResizeObserver(render);obs.observe(node);return ()=>obs.disconnect();
- },[draw,strokes]);
+ },[draw,strokes,inkColor,inkMode]);
  function edit(item:Item){setSelected(item.id);setDraft({...item,details:{...item.details}});setStatus('');}
  function create(){
   const item={id:crypto.randomUUID(),user_id:session.user.id,kind,title:'',body:'',details:{},updated_at:new Date().toISOString()};
@@ -90,6 +92,7 @@ export function LifeStudio({session,kind}:Props){
  }
  function start(ev:PointerEvent<HTMLCanvasElement>){
   ev.preventDefault();ev.currentTarget.setPointerCapture(ev.pointerId);writing.current=true;
+  if(inkMode==='eraser'){const next=latest.current.slice(0,-1);latest.current=next;setStrokes(next);return;}
   const next=[...latest.current,[point(ev)]];latest.current=next;setStrokes(next);
  }
  function move(ev:PointerEvent<HTMLCanvasElement>){
@@ -124,9 +127,9 @@ export function LifeStudio({session,kind}:Props){
      <label>Progress: {getNumber(d,'progress')}%<input type="range" min="0" max="100" step="5" value={getNumber(d,'progress')} onChange={e=>detail('progress',Number(e.target.value))}/></label>
      <label>Status<select value={getString(d,'status')||'Planning'} onChange={e=>detail('status',e.target.value)}>{['Planning','In progress','Paused','Completed'].map(x=><option key={x}>{x}</option>)}</select></label>
     </div><h3>Steps and milestones</h3></>}
-    {kind==='note'&&<div className="note-format">A generous writing surface for keyboard, touch and stylus. Use Draw for pen strokes.</div>}
+    {kind==='note'&&<div className="note-format">Write freely. Choose Draw for Apple Pencil or touch handwriting.</div>}
     <textarea className={'studio-body '+(kind==='note'?'note-page':'')} value={draft.body} onChange={e=>update({body:e.target.value})} placeholder={kind==='note'?'Begin writing…':kind==='wardrobe'?'Fit, styling ideas, outfit combinations, notes…':'Why this matters, next steps, milestones and what success looks like…'} aria-label={kind==='note'?'Note body':'Details'} />
-    {kind==='note'&&draw&&<div className="drawing-section"><div className="drawing-tools"><strong>Handwriting canvas</strong><button className="secondary" onClick={()=>{latest.current=[];setStrokes([]);}}>Clear ink</button></div><canvas className="note-canvas" ref={canvas} onPointerDown={start} onPointerMove={move} onPointerUp={stop} onPointerCancel={stop} aria-label="Freehand writing canvas for stylus or finger"/></div>}
+    {kind==='note'&&draw&&<div className="drawing-section"><div className="drawing-tools"><strong>Handwriting</strong><div className="ink-actions"><button className="icon-btn" title="Pen" aria-label="Pen" aria-pressed={inkMode==='pen'} onClick={()=>setInkMode('pen')}><PenLine size={17}/></button><button className="icon-btn" title="Highlighter" aria-label="Highlighter" aria-pressed={inkMode==='highlighter'} onClick={()=>setInkMode('highlighter')}><Highlighter size={17}/></button><button className="icon-btn" title="Erase last stroke" aria-label="Erase last stroke" onClick={()=>{latest.current=latest.current.slice(0,-1);setStrokes(latest.current);}}><Eraser size={17}/></button><button className="icon-btn" title="Undo" aria-label="Undo" onClick={()=>{latest.current=latest.current.slice(0,-1);setStrokes(latest.current);}}><Undo2 size={17}/></button><input type="color" aria-label="Ink colour" value={inkColor} onChange={e=>setInkColor(e.target.value)}/></div></div><canvas className="note-canvas" ref={canvas} onPointerDown={start} onPointerMove={move} onPointerUp={stop} onPointerCancel={stop} aria-label="Freehand writing canvas for stylus or finger"/></div>}
     <div className="studio-status" role="status">{status||'Your changes are saved only when you tap Save.'}</div>
    </>}
    </section>
