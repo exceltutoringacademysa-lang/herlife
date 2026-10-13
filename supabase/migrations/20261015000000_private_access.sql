@@ -1,3 +1,6 @@
+-- Run this entire file as one query. PostgreSQL rolls back all changes if any statement fails.
+begin;
+
 -- HerLife private access gate.
 -- A signed-in account must be explicitly approved by the project administrator.
 -- Authentication alone never grants access to private app records.
@@ -9,6 +12,8 @@ create table if not exists public.app_members (
 alter table public.app_members enable row level security;
 alter table public.app_members force row level security;
 
+-- Safe when re-running after a previously interrupted SQL Editor execution.
+drop policy if exists "Members see own approval" on public.app_members;
 create policy "Members see own approval" on public.app_members
   for select to authenticated using ((select auth.uid()) = user_id);
 
@@ -98,3 +103,5 @@ create policy "Own habit checkins delete" on public.habit_checkins
 -- on conflict (user_id) do nothing;
 --
 -- Never embed the recipient email in committed SQL.
+
+commit;
