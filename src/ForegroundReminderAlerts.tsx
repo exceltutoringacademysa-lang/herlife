@@ -7,11 +7,10 @@ function reminderTime(row:EventRow){return new Date(row.starts_at).getTime()-row
 export function ForegroundReminderAlerts({session}:{session:Session}){
  const [enabled,setEnabled]=useState(()=>localStorage.getItem('herlife-foreground-reminders')==='yes');
  const [alert,setAlert]=useState<EventRow|null>(null);
- const [permission,setPermission]=useState<string>(()=>typeof Notification==='undefined'?'unsupported':Notification.permission);
  const delivered=useRef<Set<string>>(new Set());
  async function activate(){
   if(typeof Notification==='undefined'){setEnabled(true);localStorage.setItem('herlife-foreground-reminders','yes');return;}
-  const result=await Notification.requestPermission();setPermission(result);setEnabled(true);localStorage.setItem('herlife-foreground-reminders','yes');
+  await Notification.requestPermission();setEnabled(true);localStorage.setItem('herlife-foreground-reminders','yes');
  }
  useEffect(()=>{
   if(!enabled||!supabase)return;
