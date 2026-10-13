@@ -79,3 +79,12 @@ After the application branch is reviewed and merged into `main`:
 6. Verify signup/confirmation, password recovery, private RLS reads/writes, and sign-out on the deployed URL.
 
 No environment keys should be pasted into GitHub source files, issues, pull-request comments, screenshots or ChatGPT messages. Set them only in your hosting platform's environment-variable interface.
+
+
+## Installable website (PWA foundation)
+
+The Vite site now includes a HerLife web manifest, purple app icons, a scoped service worker for public static assets, and Vercel SPA routing configuration. After deployment over HTTPS, compatible browsers may offer **Install app** or **Add to Home Screen**. It is an installable **website**, not a native Android/iOS application.
+
+**Privacy:** the service worker does not cache Supabase responses, personal entries, tokens, journal text or authenticated pages. Private data and account actions require internet connectivity. Device-level background alarms and push notifications have not been implemented.
+
+After Vercel is connected and the changes are approved/merged, configure `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` in Vercel project environment variables, deploy, then configure the actual HTTPS site URL and allowed redirect URLs in Supabase Auth. Test account access with a verified, explicitly approved user. Never expose secret credentials or real personal data through GitHub commits.
