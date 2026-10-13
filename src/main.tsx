@@ -5,6 +5,7 @@ import './styles.css';
 import './native.css';
 import './life-studio.css';
 import './everyday-tools.css';
+import './boutique.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
