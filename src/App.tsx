@@ -28,6 +28,7 @@ function readRef() { const day = (new Date().getDay()+6)%7; return WEEKLY_READIN
 export default function App() {
   const [session, setSession] = useState<Session|null>(null);
   const [loading, setLoading] = useState(true);
+  const [accessStatus, setAccessStatus] = useState<'checking'|'approved'|'pending'|'error'>('checking');
   const [section, setSection] = useState<Section>('home');
   const [entries, setEntries] = useState<Entry[]>([]);
   const [habitCheckins, setHabitCheckins] = useState<HabitCheckin[]>([]);
@@ -62,7 +63,18 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
   useEffect(() => {
-    if (!supabase || !session) { setEntries([]); setHabitCheckins([]); return; }
+    if (!supabase || !session) { setAccessStatus('checking'); return; }
+    let alive = true;
+    setAccessStatus('checking');
+    supabase.from('app_members').select('user_id').eq('user_id', session.user.id).maybeSingle()
+      .then(({ data, error: accessError }) => {
+        if (!alive) return;
+        setAccessStatus(accessError ? 'error' : data ? 'approved' : 'pending');
+      });
+    return () => { alive = false; };
+  }, [session?.user.id]);
+  useEffect(() => {
+    if (!supabase || !session || accessStatus !== 'approved') { setEntries([]); setHabitCheckins([]); return; }
     let alive = true;
     const client = supabase;
     async function load() {
@@ -83,12 +95,12 @@ export default function App() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'habit_checkins', filter: 'user_id=eq.' + session.user.id }, () => { void load(); })
       .subscribe();
     return () => { alive = false; void client.removeChannel(channel); };
-  }, [session]);
+  }, [session, accessStatus]);
   useEffect(() => {
-    if (!session || !supabase) return;
+    if (!session || !supabase || accessStatus !== 'approved') return;
     const client = supabase;
     client.from('preferences').select('quiet_time').eq('user_id', session.user.id).maybeSingle().then(({data}) => { if (data?.quiet_time) setQuietTime(data.quiet_time.slice(0,5)); });
-  }, [session]);
+  }, [session, accessStatus]);
 
   const groups = useMemo(() => ({
     tasks: entries.filter(e=>e.kind==='task'),
@@ -192,6 +204,8 @@ export default function App() {
     <section className="auth-box"><div className="auth-card"><p className="eyebrow">ACCOUNT RECOVERY</p><h2>Create a new password</h2><form onSubmit={updatePassword}><label>New password (12 or more characters)<input type="password" minLength={12} autoComplete="new-password" required value={authPassword} onChange={e=>setAuthPassword(e.target.value)}/></label>{error&&<p className="error" role="alert">{error}</p>}<button className="primary full" disabled={busy}>{busy?'Updating…':'Update password'}</button></form><button className="text-button" onClick={()=>supabase?.auth.signOut()}>Cancel and sign out</button></div></section>
   </main>;
   if (!session) return <main className="auth-page"><section className="auth-intro"><span className="brand-logo"><span className="brand-mark">H</span>{BRAND.appName}</span><div><p className="eyebrow">A PERSONAL SPACE FOR INTENTIONAL LIVING</p><h1>Grow in grace.<br/>Live with purpose.</h1><p>A quieter place to plan your days, reflect on your journey, and build the future that matters to you.</p></div><p className="muted small">{BRAND.developerCredit}</p></section><section className="auth-box"><div className="auth-card"><p className="eyebrow">WELCOME TO HERLIFE</p><h2>{resetRequest?'Reset your password':register?'Create your private space':'Welcome back'}</h2><p className="muted">{resetRequest?'Enter your account email to request a secure reset link.':register?'Your next chapter begins here.':'Sign in to continue your journey.'}</p><form onSubmit={resetRequest?emailPasswordReset:authenticate}><label>Email address<input type="email" required autoComplete="email" value={authEmail} onChange={e=>setAuthEmail(e.target.value)} placeholder="you@example.com"/></label>{!resetRequest&&<label>Password<input type="password" required minLength={6} autoComplete={register?'new-password':'current-password'} value={authPassword} onChange={e=>setAuthPassword(e.target.value)}/></label>}{error&&<p className="error" role="alert">{error}</p>}{notice&&<p className="success" role="status">{notice}</p>}<button className="primary full" disabled={busy}>{busy?'Please wait…':resetRequest?'Email reset link':register?'Create account':'Sign in'} <ChevronRight size={17}/></button></form><button className="text-button" onClick={()=>{setError('');setNotice('');if(resetRequest){setResetRequest(false);} else {setRegister(!register);}}}>{resetRequest?'Back to sign in':register?'Already have an account? Sign in':'New here? Create an account'}</button>{!register&&!resetRequest&&<button className="text-button" onClick={()=>{setResetRequest(true);setError('');setNotice('');}}>Forgot your password?</button>}</div></section></main>;
+
+  if (accessStatus !== 'approved') return <main className="center-state"><div className="setup-panel"><span className="brand-mark">H</span><h1>HerLife</h1>{accessStatus === 'checking' ? <p>Checking your private access…</p> : accessStatus === 'error' ? <p>Could not verify private access. Ask the administrator to apply all database migrations and check the connection.</p> : <><h2>Private access awaiting approval</h2><p>Your account is registered, but this personal space requires approval from the administrator before it can be used.</p></>}<button className="secondary" onClick={()=>supabase?.auth.signOut()}><LogOut size={16}/> Sign out</button><p className="tiny muted">{BRAND.developerCredit}</p></div></main>;
 
   return <div className="app-shell">
     <aside className={'sidebar '+(mobileMenu?'show':'')}>
