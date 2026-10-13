@@ -125,3 +125,18 @@ body{background:#f7f4f7;letter-spacing:-.005em}
  .card,.stat-card,.home-tile,.sidebar,.topbar,.mobile-tabbar{backdrop-filter:none;-webkit-backdrop-filter:none;background:var(--surface)}
 }
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.home-tile:hover{transform:none}}
+
+/* A private signed-in overview, based on live user records */
+.home-glance{margin:27px 0 33px}
+.home-glance-intro{margin-bottom:15px}
+.home-glance-intro h2{font:400 27px/1.2 Georgia,serif;letter-spacing:-.55px;color:var(--ink);margin:8px 0 0}
+.home-glance-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px}
+.glance-item{min-width:0;display:flex;align-items:flex-start;flex-direction:column;gap:10px;text-align:left;background:var(--glass-fill);border:1px solid var(--glass-border);border-radius:19px;box-shadow:var(--glass-shadow);padding:20px;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);color:var(--ink);cursor:pointer;transition:transform .2s,background .2s}
+.glance-item:hover{background:var(--surface);transform:translateY(-2px)}
+.glance-item:active{transform:scale(.985)}
+.glance-top{display:flex;width:100%;justify-content:space-between;align-items:center;color:var(--purple);margin-bottom:8px}
+.glance-top svg:last-child{color:var(--muted)}
+.glance-label{font-size:11px;color:var(--muted);font-weight:650}
+.glance-item strong{font:400 23px/1.22 Georgia,serif;color:var(--ink);overflow-wrap:anywhere}
+.glance-item small{font-size:11px;color:var(--muted);line-height:1.5}
+@media(max-width:760px){.home-glance-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.glance-item{padding:16px;border-radius:17px}.glance-item:last-child{grid-column:span 2}.glance-item strong{font-size:20px}}
