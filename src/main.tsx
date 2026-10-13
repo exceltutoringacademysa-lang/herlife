@@ -6,6 +6,7 @@ import './native.css';
 import './life-studio.css';
 import './everyday-tools.css';
 import './boutique.css';
+import './glass.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
