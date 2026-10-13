@@ -120,12 +120,9 @@ export default function App() {
   useEffect(() => {
     if (!supabase || !session || accessStatus !== 'approved') { setFilmReady(false); return; }
     let alive = true;
-    supabase.storage.from('herlife-memories').list(session.user.id,{limit:100})
-      .then(({data}) => {
-        if (!alive) return;
-        // Never interrupt her first visit unless the private film has actual photos.
-        setFilmReady(Boolean(data?.some(file=>/\\.(jpe?g|png|webp)$/i.test(file.name))));
-      });
+    fetch('/memories/001-memory.jpg',{method:'HEAD'})
+      .then(response => { if(alive) setFilmReady(response.ok); })
+      .catch(() => { if(alive) setFilmReady(false); });
     return () => { alive = false; };
   }, [session?.user.id,accessStatus]);
 
