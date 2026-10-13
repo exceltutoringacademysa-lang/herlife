@@ -8,6 +8,7 @@ import './everyday-tools.css';
 import './boutique.css';
 import './glass.css';
 import './games.css';
+import './arcade.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
