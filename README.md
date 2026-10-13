@@ -81,3 +81,15 @@ The Vite site now includes a HerLife web manifest, purple app icons, a scoped se
 **Privacy:** the service worker does not cache Supabase responses, personal entries, tokens, journal text or authenticated pages. Private data and account actions require internet connectivity. Device-level background alarms and push notifications have not been implemented.
 
 After Vercel is connected and the changes are approved/merged, configure `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` in Vercel project environment variables, deploy, then configure the actual HTTPS site URL and allowed redirect URLs in Supabase Auth. Test account access with a verified, explicitly approved user. Never expose secret credentials or real personal data through GitHub commits.
+
+## Private first-sign-in memory film
+
+This feature uses a private Supabase Storage bucket named `herlife-memories` and a `preferences.welcome_film_seen_at` timestamp. The **20261016000000_private_memories.sql** migration creates the required database configuration; it has been applied to the original HerLife Supabase project. Do not make the storage bucket public.
+
+**Private media provisioning — administrator only:** The owner photos, videos and song must never be checked into this public GitHub repository or stored in `public/` or the Vercel build. Only place the assets in Supabase Dashboard → Storage → `herlife-memories` inside the folder named **exactly the verified intended owner's Supabase Auth UUID** (viewable in Authentication → Users). Media access policies use this UUID. A developer/test user's folder does not grant access to the intended owner.
+
+Uploaded filenames are played in ascending lexical order. Use `001-memory.jpg`, `002-memory.jpg`, etc., with video files interleaved in sequence (e.g. `013-memory-video.mp4`, `024-memory-video.mp4`). Name the soundtrack `soundtrack.mp3`. Download the user-supplied assets from the private conversation file package, extract locally and upload the actual files, **not the ZIP archive**. Supported photos: JPG/PNG/WebP; videos: MP4/WebM; soundtrack: MP3/M4A; maximum asset size 50 MB. The browser obtains short-lived signed URLs only after authenticated owner access.
+
+Once a photo has been uploaded and the user signs in, the cinematic film begins with **Begin your journey** (a user gesture required for browser audio playback). Skipping or closing the film does not permanently mark it watched; **Enter HerLife** marks the film seen in the user's private preferences. She can replay it later from the home dashboard's **My journey & memories** tile. Where media have not yet been uploaded, no film auto-opens.
+
+The slideshow captions are an initial original draft; the photo sequence and video placement should be reviewed with the person preparing the gift. This browser experience does not guarantee background audio autoplay, offline playback, native home-screen widgets or notifications. The song must be used with the rights-holder's permission and according to any licence that applies to publishing it online, even in a private app.
