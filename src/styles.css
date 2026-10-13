@@ -59,3 +59,33 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .faith-buttons { display:flex;flex-wrap:wrap;gap:9px;margin-top:12px; }
 @media(max-width:980px){.home-tiles{grid-template-columns:repeat(2,minmax(0,1fr));}.bible-tools{grid-template-columns:1fr 1fr}.bible-search{grid-column:span 2}}
 @media(max-width:600px){.home-tiles{grid-template-columns:1fr 1fr;gap:8px}.home-tile{flex-wrap:wrap;gap:9px;padding:15px 11px;min-height:112px}.home-tile>span:nth-child(2){flex-basis:100%}.home-tile>svg{display:none}.faith-intro{padding:30px 24px}.bible-tools{padding:13px;gap:8px}.bible-chapter.card{padding:24px 19px}.bible-footer .secondary{padding:10px;font-size:11px}.home-quicklinks h2{font-size:26px}.bible-search .primary span{display:none}}
+
+
+/* Private cinematic first-sign-in journey */
+.film-layer {position:fixed;inset:0;z-index:99;background:#130c1d;color:#f7f0ff;overflow:hidden;}
+.film-surface {position:relative;width:100%;height:100%;min-height:100dvh;display:flex;align-items:center;justify-content:center;isolation:isolate;}
+.film-media {position:absolute;width:100%;height:100%;inset:0;object-fit:contain;z-index:-2;background:#09060d;animation:film-arrive .9s ease both;}
+.film-shade {position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,rgba(16,9,22,.47),transparent 30%,transparent 46%,rgba(12,6,20,.85));pointer-events:none;}
+.film-header {position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:25px clamp(20px,5vw,75px);font-size:10px;letter-spacing:.22em;font-weight:700;}
+.film-dot {color:#cdb1e8;margin:0 6px;}
+.film-header button,.film-controls button,.film-plain {border:0;background:transparent;color:inherit;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;min-height:42px;min-width:42px;}
+.film-header button:hover,.film-controls button:hover {color:#d6baff;}
+.film-front {width:min(90vw,720px);text-align:center;margin:auto;padding:90px 0 70px;}
+.film-ornament {font-size:45px;color:#b69ad2;line-height:2;}
+.film-label {display:block;color:#d8c3e9;letter-spacing:.24em;text-transform:uppercase;font-size:11px;font-weight:650;}
+.film-front h1 {font:400 clamp(38px,6.4vw,76px)/1.13 "Iowan Old Style",Baskerville,Georgia,serif;letter-spacing:-.045em;margin:18px 0 26px;color:#fff;}
+.film-front p {color:#e3d7ea;line-height:1.9;max-width:540px;margin:0 auto 26px;font-size:15px;}
+.film-start {display:inline-flex;align-items:center;justify-content:center;gap:10px;border:1px solid #d3bfe8;background:#e7d8f5;color:#261639;border-radius:100px;padding:16px 32px;min-height:52px;font-weight:750;font-size:13px;cursor:pointer;}
+.film-start:hover {background:#fff;}
+.film-finale>svg {color:#d5b8e5;margin-bottom:22px;}
+.film-plain {display:flex;margin:16px auto 0;text-decoration:underline;}
+.film-story {position:absolute;bottom:110px;left:clamp(25px,7vw,112px);max-width:min(85vw,700px);}
+.film-story h2 {font:400 clamp(29px,4.6vw,53px)/1.2 "Iowan Old Style",Georgia,serif;color:#fff;margin:13px 0 10px;text-shadow:0 1px 18px #0007;animation:film-arrive .7s ease both;}
+.film-story p {font-size:11px;letter-spacing:.1em;color:#dfc9e9;}
+.film-controls {position:absolute;bottom:0;left:0;right:0;display:flex;align-items:center;gap:13px;padding:15px clamp(17px,5vw,75px) 25px;background:linear-gradient(transparent,rgba(5,2,10,.58));}
+.film-progress {height:3px;background:#ffffff40;flex:1;border-radius:3px;overflow:hidden;}
+.film-progress>div {height:100%;background:#d0b2ed;transition:width .45s;}
+.film-skip {font-size:12px;}
+@keyframes film-arrive {from{opacity:.25;transform:scale(1.025)}to{opacity:1;transform:scale(1)}}
+@media(max-width:600px){.film-story{bottom:125px}.film-controls{gap:2px;padding-bottom:24px}.film-header{padding:22px}.film-skip{font-size:10px;white-space:nowrap}.film-front p{font-size:13px}.film-front{padding-top:100px}}
+@media(prefers-reduced-motion:reduce){.film-media,.film-story h2{animation:none}}
