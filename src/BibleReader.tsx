@@ -9,6 +9,7 @@ type Verse = { verse: number; text: string };
 type Response = { reference?:string; translation_name?:string; verses?:Verse[]; error?:string };
 type Props = { onAddReflection: (reference:string)=>void; initialReference?:string };
 export function BibleReader({onAddReflection,initialReference='Psalm 23'}:Props) {
+  const [version,setVersion] = useState<'kjv'|'web'>('kjv');
   const [book,setBook] = useState('Psalms');
   const [chapter,setChapter] = useState(23);
   const [query,setQuery] = useState(initialReference);
@@ -22,7 +23,7 @@ export function BibleReader({onAddReflection,initialReference='Psalm 23'}:Props)
   useEffect(()=>{
     const controller=new AbortController();
     setLoading(true);setError('');setData(null);
-    const url='https://bible-api.com/'+encodeURIComponent(reference)+'?translation=web';
+    const url='https://bible-api.com/'+encodeURIComponent(reference)+'?translation='+version;
     fetch(url,{signal:controller.signal}).then(async response=>{
       if(!response.ok) throw new Error('This passage could not be found.');
       const body=await response.json() as Response;
@@ -31,7 +32,7 @@ export function BibleReader({onAddReflection,initialReference='Psalm 23'}:Props)
     }).catch(e=>{if(!controller.signal.aborted)setError(e instanceof Error?e.message:'Unable to load the Bible right now.');})
       .finally(()=>{if(!controller.signal.aborted)setLoading(false);});
     return ()=>controller.abort();
-  },[reference]);
+  },[reference,version]);
   function loadChapter(nextBook=book,nextChapter=chapter){
     const max=BOOKS.find(([name])=>name===nextBook)?.[1]??1;
     const chapterNumber=Math.min(Math.max(1,nextChapter),max);
@@ -47,8 +48,8 @@ export function BibleReader({onAddReflection,initialReference='Psalm 23'}:Props)
     if(match){const n=Number(term.slice(match[0].length).trim().split(':')[0]);if(Number.isInteger(n)&&n>=1&&n<=match[1]){setBook(match[0]);setChapter(n);}}
   }
   return <div className="bible-reader">
-    <header className="bible-topline"><div className="eyebrow"><BookOpen size={16}/> HERLIFE SCRIPTURE READER</div><span className="bible-translation">World English Bible · public domain</span></header>
-    <div className="bible-tools">
+    <header className="bible-topline"><div className="eyebrow"><BookOpen size={16}/> HERLIFE SCRIPTURE READER</div><span className="bible-translation">Choose your translation</span></header>
+    <div className="bible-version"><div><label htmlFor="translation-select">Bible translation</label><select id="translation-select" value={version} onChange={e=>setVersion(e.target.value as 'kjv'|'web')}><option value="kjv">KJV — King James Version</option><option value="web">WEB — World English Bible</option></select></div><p>NKJV and NIV require publisher-authorised access. <a href="https://www.biblegateway.com/versions/New-King-James-Version-NKJV-Bible/" target="_blank" rel="noopener noreferrer">Read NKJV</a> · <a href="https://www.biblegateway.com/versions/New-International-Version-NIV-Bible/" target="_blank" rel="noopener noreferrer">Read NIV</a></p></div><div className="bible-tools">
       <label>Book<select value={book} onChange={e=>loadChapter(e.target.value,1)}>{BOOKS.map(([name])=><option key={name}>{name}</option>)}</select></label>
       <label>Chapter<select value={chapter} onChange={e=>loadChapter(book,Number(e.target.value))}>{Array.from({length:count},(_,i)=><option value={i+1} key={i}>{i+1}</option>)}</select></label>
       <form className="bible-search" onSubmit={search}><label htmlFor="bible-search-input">Search by reference</label><div><input id="bible-search-input" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Romans 8:28-39"/><button type="submit" className="primary" aria-label="Find passage"><Search size={18}/><span>Read</span></button></div></form>
