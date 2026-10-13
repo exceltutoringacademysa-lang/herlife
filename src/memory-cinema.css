@@ -1,0 +1,28 @@
+/* HerLife memory film: edge-to-edge cinema, real photos and video only. */
+.film-layer{position:fixed!important;inset:0!important;z-index:200!important;background:#08070a!important;color:#fff!important;overflow:hidden!important}
+.film-surface{position:relative!important;inset:0;width:100%!important;height:100dvh!important;min-height:100dvh!important;max-height:100dvh!important;overflow:hidden!important;background:#08070a!important;isolation:isolate}
+.film-media{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;object-fit:cover!important;object-position:center!important;z-index:-2!important;background:#08070a!important}
+.film-cover-photo{position:absolute;inset:0;z-index:-2;background:linear-gradient(180deg,rgba(10,8,12,.1),rgba(10,8,12,.15)),url('/memories/001-memory.jpg') center / cover no-repeat;filter:brightness(.6)}
+.film-shade{position:absolute!important;inset:0!important;z-index:-1!important;background:linear-gradient(180deg,rgba(6,5,8,.45) 0%,rgba(5,4,7,.04) 31%,rgba(8,5,10,.08) 50%,rgba(7,4,9,.82) 100%)!important}
+.film-header{position:absolute!important;top:0!important;left:0!important;right:0!important;z-index:3;display:flex!important;align-items:center!important;justify-content:space-between!important;padding:calc(21px + env(safe-area-inset-top)) 22px 18px!important;font:600 10px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;letter-spacing:.15em!important;color:#fff!important}
+.film-separator{margin:0 8px;color:#ffffff72}
+.film-header button{min-width:40px;min-height:40px;border-radius:50%;background:rgba(20,17,23,.26)!important;backdrop-filter:blur(12px);color:#fff!important}
+.film-front{position:relative!important;width:min(88vw,660px)!important;padding:90px 0 70px!important;max-height:100dvh;overflow-y:auto;text-align:left!important;margin:auto!important}
+.film-front h1{font:400 clamp(40px,7vw,75px)/1.09 Georgia,serif!important;letter-spacing:-.035em!important;color:#fff!important;margin:18px 0 20px!important}
+.film-front p{color:#f2ecf3!important;font-size:clamp(14px,2.6vw,17px)!important;line-height:1.68!important;max-width:550px!important;margin:0 0 27px!important}
+.film-label{font:600 10px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;letter-spacing:.16em!important;color:#f5edf4!important}
+.film-ornament,.film-dot,.film-finale>svg{display:none!important}
+.film-start{background:#fff!important;color:#26202a!important;border:1px solid #fff!important;min-height:49px!important;border-radius:13px!important;font-size:13px!important;padding:12px 20px!important;font-weight:650!important;box-shadow:none!important}
+.film-start:hover{background:#f3edf3!important}
+.film-finale{text-align:center!important}
+.film-finale p{margin:0 auto 23px!important}
+.film-story{position:absolute!important;left:clamp(20px,5vw,76px)!important;right:clamp(20px,5vw,76px)!important;bottom:calc(98px + env(safe-area-inset-bottom))!important;max-width:800px!important;pointer-events:none}
+.film-story h2{font:400 clamp(24px,4.7vw,46px)/1.16 Georgia,serif!important;letter-spacing:-.035em;margin:12px 0 8px!important;max-width:720px;color:#fff;text-shadow:0 2px 12px #0007!important}
+.film-story p{color:#fffd!important;font-size:11px!important;margin:8px 0!important}
+.film-controls{position:absolute!important;bottom:0!important;left:0!important;right:0!important;z-index:3;display:flex!important;gap:8px!important;align-items:center!important;padding:12px clamp(16px,4vw,52px) calc(17px + env(safe-area-inset-bottom))!important;background:linear-gradient(0deg,rgba(6,4,8,.55),transparent)!important}
+.film-controls button{width:40px;height:40px;min-height:40px;min-width:40px;border-radius:50%;color:#fff!important}
+.film-controls .film-skip{font-size:11px!important;width:auto;padding:0 9px;border-radius:9px}
+.film-progress{height:2px!important;background:#ffffff65!important}
+.film-progress>div{background:#fff!important}
+@media(max-width:600px){.film-header{padding:calc(12px + env(safe-area-inset-top)) 17px 12px!important;font-size:9px!important}.film-front{width:calc(100% - 46px)!important}.film-front h1{font-size:clamp(39px,10vw,59px)!important}.film-story{left:21px!important;right:21px!important;bottom:calc(91px + env(safe-area-inset-bottom))!important}.film-story h2{font-size:clamp(25px,7.5vw,36px)!important}.film-controls{gap:2px!important;padding:7px 9px calc(11px + env(safe-area-inset-bottom))!important}.film-controls button{width:36px;min-width:36px}.film-controls .film-skip{padding:0 5px;font-size:10px!important}}
+@media(prefers-reduced-motion:reduce){.film-media,.film-story h2{animation:none!important}}
