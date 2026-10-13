@@ -35,9 +35,8 @@ export function ForegroundReminderAlerts({session}:{session:Session}){
   void check();const tick=window.setInterval(()=>void check(),20000);
   return()=>{active=false;window.clearInterval(tick);};
  },[enabled,session.user.id]);
- return <div className="foreground-reminder-control">
+ return <>
   {alert&&<div className="foreground-alert" role="alert"><Bell size={18}/><span><strong>Event reminder</strong>{alert.title}</span><button aria-label="Dismiss reminder" className="icon-btn" onClick={()=>setAlert(null)}><X size={17}/></button></div>}
-  <button className="foreground-reminder-toggle" onClick={()=>{if(enabled){setEnabled(false);localStorage.setItem('herlife-foreground-reminders','no');}else void activate();}}>{enabled?<Bell size={15}/>:<BellOff size={15}/>} {enabled?'On-screen reminders on':'Enable on-screen reminders'}</button>
-  {enabled&&<span className="foreground-reminder-disclosure">{permission==='denied'?'Browser system notifications blocked. ':''}Reminders run only while HerLife is open and active. Background ringing alarms still require native scheduling.</span>}
- </div>;
+  <button className="icon-btn reminder-header-button" title={enabled?'On-screen reminders enabled. Alerts only while HerLife is active. Tap to disable.':'Enable on-screen reminders (only while app is open)'} aria-label={enabled?'On-screen reminders on. Tap to disable':'Enable on-screen reminders'} onClick={()=>{if(enabled){setEnabled(false);localStorage.setItem('herlife-foreground-reminders','no');}else void activate();}}>{enabled?<Bell size={19}/>:<BellOff size={19}/>}</button>
+ </>;
 }
