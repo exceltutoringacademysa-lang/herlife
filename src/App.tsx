@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import { BookOpen, CalendarDays, Check, ChevronRight, Heart, LayoutDashboard, ListChecks, LogOut, Menu, Moon, NotebookPen, Plus, Settings, Sun, Target, Trash2, Wallet, X } from 'lucide-react';
+import { BookOpen, CalendarDays, Check, ChevronLeft, ChevronRight, Heart, LayoutDashboard, ListChecks, LogOut, Menu, Moon, NotebookPen, Plus, Settings, Sun, Target, Trash2, Wallet, X } from 'lucide-react';
 import { BRAND, WEEKLY_READING_REFERENCES } from './brand';
 import { isConfigured, supabase } from './lib/supabase';
+import { calendarMonthGrid, localISODate } from './lib/dates';
+import { calculateNetCashFlow, parseTransactionAmount } from './lib/finance';
 
 type Section = 'home' | 'faith' | 'planner' | 'journal' | 'habits' | 'goals' | 'finances' | 'settings';
 type Entry = { id: string; kind: 'task'|'journal'|'habit'|'goal'|'transaction'|'prayer'|'quiet_time'; title: string; content: string; value: number; done: boolean; created_at: string; due_date: string|null };
@@ -18,7 +20,7 @@ const nav = [
 ] as const;
 const formatDate = (date: Date) => new Intl.DateTimeFormat('en-ZA', { weekday:'long', day:'numeric', month:'long', year:'numeric' }).format(date);
 const money = (n: number) => new Intl.NumberFormat('en-ZA', { style:'currency', currency: BRAND.currency }).format(n);
-const today = () => new Date().toLocaleDateString('en-CA');
+const today = () => localISODate();
 function greeting() { const h = new Date().getHours(); return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'; }
 function readRef() { const day = (new Date().getDay()+6)%7; return WEEKLY_READING_REFERENCES[day]; }
 
@@ -36,6 +38,8 @@ export default function App() {
   const [content, setContent] = useState('');
   const [value, setValue] = useState('');
   const [date, setDate] = useState(today());
+  const [selectedDate, setSelectedDate] = useState(today());
+  const [viewMonth, setViewMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [quietTime, setQuietTime] = useState('06:00');
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
@@ -79,9 +83,10 @@ export default function App() {
     quiet: entries.filter(e=>e.kind==='quiet_time'),
   }), [entries]);
   const todayTasks = groups.tasks.filter(e => e.due_date === today());
-  const balance = groups.finances.reduce((total,e)=>total + e.value,0);
+  const balance = calculateNetCashFlow(groups.finances);
+  const calendarDays = useMemo(() => calendarMonthGrid(viewMonth.getFullYear(), viewMonth.getMonth()), [viewMonth]);
   const completed = todayTasks.filter(e=>e.done).length;
-  const open = (kind: Entry['kind']) => { setFormOpen(kind); setTitle(''); setContent(''); setValue(''); setDate(today()); setError(''); };
+  const open = (kind: Entry['kind']) => { setFormOpen(kind); setTitle(''); setContent(''); setValue(''); setDate(kind === 'task' && section === 'planner' ? selectedDate : today()); setError(''); };
   async function authenticate(ev: FormEvent) {
     ev.preventDefault(); if (!supabase) return;
     setBusy(true); setError(''); setNotice('');
@@ -93,11 +98,12 @@ export default function App() {
   }
   async function addEntry(ev: FormEvent) {
     ev.preventDefault(); if (!supabase || !session || !formOpen) return;
-    if (formOpen === 'transaction' && (!Number.isFinite(Number(value)) || Number(value) === 0)) { setError('Enter a non-zero amount; use a minus sign for spending.'); return; }
+    const parsedAmount = formOpen === 'transaction' ? parseTransactionAmount(value) : 0;
+    if (parsedAmount === null) { setError('Enter a valid non-zero amount with no more than two decimal places. Use a minus sign for spending.'); return; }
     setBusy(true); setError('');
     const { data, error: dbError } = await supabase.from('entries').insert({
       user_id: session.user.id, kind: formOpen, title: title.trim() || (formOpen === 'quiet_time' ? 'Quiet time' : 'Untitled'),
-      content: content.trim(), value: formOpen === 'transaction' ? Number(value) : 0,
+      content: content.trim(), value: parsedAmount,
       due_date: ['task','quiet_time'].includes(formOpen) ? date : null, done: false,
     }).select('*').single();
     setBusy(false);
@@ -145,7 +151,7 @@ export default function App() {
       {notice&&<div className="alert success" role="status">{notice}<button onClick={()=>setNotice('')} aria-label="Dismiss notice"><X size={16}/></button></div>}
       {section==='home'&&<><div className="welcome"><p className="eyebrow">{formatDate(new Date()).toUpperCase()}</p><h1>{greeting()}, {BRAND.ownerFirstName}<span className="period">.</span></h1><p>A little intention today makes space for a meaningful tomorrow.</p></div><div className="feature-grid"><section className="card daily-verse"><div className="section-kicker"><BookOpen size={17}/> TODAY'S SCRIPTURE</div><h2>Make room for the Word.</h2><p className="scripture-ref">Today's reading · {readRef()}</p><p>Read the passage in your Bible, then spend a moment reflecting on what it means for your day.</p><button className="subtle-link" onClick={()=>setSection('faith')}>Begin quiet time <ChevronRight size={16}/></button></section><section className="card overview-card"><div className="section-kicker">TODAY AT A GLANCE</div><div className="progress-number">{completed}<span> / {todayTasks.length}</span></div><p className="muted">Today's priorities completed</p><div className="progress-track"><div style={{width:todayTasks.length?(completed/todayTasks.length*100)+'%':'0%'}}/></div><button className="subtle-link" onClick={()=>setSection('planner')}>View your planner <ChevronRight size={16}/></button></section></div><div className="stat-grid"><button className="stat-card" onClick={()=>setSection('habits')}><ListChecks/><span className="stat-number">{groups.habits.filter(e=>e.done).length}/{groups.habits.length}</span><span>Habits checked</span></button><button className="stat-card" onClick={()=>setSection('journal')}><NotebookPen/><span className="stat-number">{groups.journal.length}</span><span>Journal reflections</span></button><button className="stat-card" onClick={()=>setSection('goals')}><Target/><span className="stat-number">{groups.goals.length}</span><span>Personal goals</span></button></div><section className="card section-card"><div className="card-heading"><div><p className="section-kicker">A FOCUSED DAY</p><h2>Today's priorities</h2></div><button className="secondary" onClick={()=>open('task')}><Plus size={17}/> Add task</button></div>{renderEntries(todayTasks,'No priorities scheduled for today. Add one thing you would like to accomplish.',true)}</section></>}
       {section==='faith'&&<><Heading kicker="THE SPIRITUAL LIFE" title="Faith & quiet time" subtitle="A gentle rhythm of scripture, prayer and reflection."/ ><div className="feature-grid"><section className="card daily-verse"><div className="section-kicker"><BookOpen size={17}/> TODAY'S READING</div><h2>{readRef()}</h2><p>Open this passage in your Bible. What is God teaching you through it today?</p><p className="tiny muted">Reading references are not quoted scripture or an integrated Bible translation.</p><button className="primary" onClick={()=>open('quiet_time')}><Plus size={17}/> Record quiet time</button></section><section className="card"><div className="section-kicker">YOUR ROUTINE</div><h2>Quiet-time intention</h2><p className="muted">Your preferred start time</p><input aria-label="Preferred quiet time" type="time" value={quietTime} onChange={e=>setQuietTime(e.target.value)}/><button className="secondary save-button" onClick={()=>saveQuietTime(quietTime)}>Save preference</button><p className="tiny muted">This is a saved preference, not a phone alarm or push notification.</p></section></div><section className="card section-card"><div className="card-heading"><h2>Prayer journal</h2><button className="secondary" onClick={()=>open('prayer')}><Plus size={17}/> Write prayer</button></div>{renderEntries(groups.prayers,'Your prayers are private. Write one when you are ready.')}</section><section className="card section-card"><h2>Quiet-time history</h2>{renderEntries(groups.quiet,'No quiet-time sessions recorded yet.')}</section></>}
-      {section==='planner'&&<><Heading kicker="PLAN WITH PURPOSE" title="My planner" subtitle="Give your priorities a place in your day."/><section className="card section-card"><div className="card-heading"><h2>Tasks & important dates</h2><button className="primary" onClick={()=>open('task')}><Plus size={17}/> New task</button></div>{renderEntries(groups.tasks,'A clear day starts with a simple plan. Add your first task.',true)}</section></>}
+      {section==='planner'&&<><Heading kicker="PLAN WITH PURPOSE" title="My planner" subtitle="Give your priorities a place in your day."/><section className="card month-calendar"><div className="card-heading"><h2>{new Intl.DateTimeFormat('en-ZA',{month:'long',year:'numeric'}).format(viewMonth)}</h2><div className="month-controls"><button className="icon-btn" aria-label="Previous month" onClick={()=>setViewMonth(v=>new Date(v.getFullYear(),v.getMonth()-1,1))}><ChevronLeft size={19}/></button><button className="secondary" onClick={()=>{setViewMonth(new Date(new Date().getFullYear(),new Date().getMonth(),1));setSelectedDate(today());}}>Today</button><button className="icon-btn" aria-label="Next month" onClick={()=>setViewMonth(v=>new Date(v.getFullYear(),v.getMonth()+1,1))}><ChevronRight size={19}/></button></div></div><div className="calendar-grid">{['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(day=><div className="calendar-label" key={day}>{day}</div>)}{calendarDays.map(day=><button key={day.iso} className={'calendar-day '+(!day.currentMonth?'outside ':'')+(selectedDate===day.iso?'selected ':'')+(today()===day.iso?'is-today':'')} aria-label={day.iso} aria-pressed={selectedDate===day.iso} onClick={()=>{setSelectedDate(day.iso);if(!day.currentMonth){const d=new Date(day.iso+'T12:00:00');setViewMonth(new Date(d.getFullYear(),d.getMonth(),1));}}}><span>{day.day}</span>{groups.tasks.some(task=>task.due_date===day.iso)&&<i className="event-dot" aria-label="Tasks scheduled"/>}</button>)}</div><p className="tiny muted">Choose a date to view or add tasks. A dot indicates scheduled tasks.</p></section><section className="card section-card"><div className="card-heading"><div><p className="section-kicker">SELECTED DAY</p><h2>{formatDate(new Date(selectedDate+'T12:00:00'))}</h2></div><button className="primary" onClick={()=>open('task')}><Plus size={17}/> New task</button></div>{renderEntries(groups.tasks.filter(task=>task.due_date===selectedDate),'Nothing scheduled for this day. Add an important task when you are ready.',true)}</section><section className="card section-card"><h2>Unscheduled tasks</h2>{renderEntries(groups.tasks.filter(task=>!task.due_date),'All tasks currently have a scheduled date.',true)}</section></>}
       {section==='journal'&&<><Heading kicker="A PRIVATE PLACE TO REFLECT" title="Your journal" subtitle="Your thoughts are yours. Write with honesty, hope and freedom."/><section className="card journal-intro"><NotebookPen size={24}/><h2>What has been on your heart lately?</h2><p>You could begin with gratitude, a lesson learned, or something you are praying about.</p><button className="primary" onClick={()=>open('journal')}><Plus size={17}/> Write an entry</button></section><section className="card section-card"><h2>Previous reflections</h2>{renderEntries(groups.journal,'Your reflections will appear here after you write your first entry.')}</section></>}
       {section==='habits'&&<><Heading kicker="SMALL STEPS, LASTING CHANGE" title="My habits" subtitle="Build a life of consistency without pressure or perfection."/><section className="card section-card"><div className="card-heading"><h2>Routines to practise</h2><button className="primary" onClick={()=>open('habit')}><Plus size={17}/> New habit</button></div><p className="tiny muted">Checking a habit marks it complete until you change it. Daily resets and streaks are not implemented yet.</p>{renderEntries(groups.habits,'Create a habit you would like to build.',true)}</section></>}
       {section==='goals'&&<><Heading kicker="BECOMING, DAY BY DAY" title="Future & goals" subtitle="Dream thoughtfully. Move forward one practical step at a time."/><section className="card section-card"><div className="card-heading"><h2>What you're working towards</h2><button className="primary" onClick={()=>open('goal')}><Plus size={17}/> New goal</button></div>{renderEntries(groups.goals,'A goal can begin with just one sentence.',true)}</section></>}
