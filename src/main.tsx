@@ -4,6 +4,7 @@ import App from './App';
 import './styles.css';
 import './native.css';
 import './life-studio.css';
+import './everyday-tools.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
