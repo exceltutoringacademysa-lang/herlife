@@ -1,6 +1,6 @@
 import {useCallback,useEffect,useRef,useState,type ChangeEvent} from 'react';
 import type {Session} from '@supabase/supabase-js';
-import {ArrowLeft,Bookmark,Check,CheckSquare,ChevronDown,Folder,Grid2X2,Highlighter,ImagePlus,LayoutList,Menu,MoreVertical,PenLine,Plus,Search,Star,Trash2,Type,Undo2,Redo2,X,FileText,Download} from 'lucide-react';
+import {ArrowLeft,Bookmark,Check,CheckSquare,Folder,Grid2X2,Highlighter,ImagePlus,LayoutList,Menu,MoreVertical,PenLine,Plus,Search,Star,Trash2,Type,Undo2,Redo2,X,FileText,Download} from 'lucide-react';
 import {supabase} from './lib/supabase';
 
 type Kind='note'|'journal';
@@ -16,7 +16,7 @@ export function NotesStudio({session,kind}:{session:Session;kind:Kind}){
  const [menu,setMenu]=useState(false),[editingMenu,setEditingMenu]=useState(false),[sort,setSort]=useState<'recent'|'title'|'oldest'>('recent'),[message,setMessage]=useState(''),[saving,setSaving]=useState(false);
  const [attachments,setAttachments]=useState<Record<string,string>>({}),[uploading,setUploading]=useState(false),[preview,setPreview]=useState(false),[font,setFont]=useState(17);
  const [undo,setUndo]=useState<string[]>([]),[redo,setRedo]=useState<string[]>([]);
- const textRef=useRef<HTMLTextAreaElement>(null),draftRef=useRef<Item|null>(null),pending=useRef(0),writeChain=useRef<Promise<unknown>>(Promise.resolve()),loadRef=useRef(0);
+ const textRef=useRef<HTMLTextAreaElement>(null),draftRef=useRef<Item|null>(null),pending=useRef(0),writeChain=useRef<Promise<unknown>>(Promise.resolve());
  const currentKey=session.user.id+'-'+kind;
  useEffect(()=>{let live=true;setDraft(null);setDrawer(false);setActive('All notes');setMessage('');setSearch('');setItems([]);
   void supabase?.from('life_items').select('*').eq('kind',kind).eq('user_id',session.user.id).order('updated_at',{ascending:false}).then(({data,error})=>{if(!live)return;if(error)setMessage('Unable to load notes: '+error.message);else setItems((data||[]) as Item[]);});
