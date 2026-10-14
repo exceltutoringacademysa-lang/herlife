@@ -16,7 +16,7 @@ const headings=[
   'The story is still unfolding.'
 ];
 const DURATIONS={photo:6000,video:12000};
-export function MemoryFilm({onClose,firstVisit=false,onFinished}:{onClose:()=>void;firstVisit?:boolean;onFinished?:()=>Promise<void>}) {
+export function MemoryFilm({onClose,firstVisit=false,onFinished,coverPhoto='001-memory.jpg'}:{onClose:()=>void;firstVisit?:boolean;onFinished?:()=>Promise<void>;coverPhoto?:string}) {
   const [scenes,setScenes]=useState<Scene[]>([]);
   const [soundtrack,setSoundtrack]=useState('');
   const [loading,setLoading]=useState(true);
@@ -79,7 +79,7 @@ export function MemoryFilm({onClose,firstVisit=false,onFinished}:{onClose:()=>vo
     {soundtrack&&<audio ref={audio} src={soundtrack} loop preload="auto"/>}
     <div className="film-surface">
       {current?.url&&<>{current.type==='photo'?<img className="film-media" src={current.url} alt="A private moment in her journey"/>:<video ref={video} className="film-media" src={current.url} playsInline muted controls={false} onEnded={()=>advance()} />}</>}
-      {!current&&<div className="film-cover-photo" aria-hidden="true"/>}
+      {!current&&<div className="film-cover-photo" style={{backgroundImage:`linear-gradient(180deg,rgba(10,8,12,.1),rgba(10,8,12,.15)),url("/memories/${/^\\d{3}-memory\\.jpg$/.test(coverPhoto)?coverPhoto:"001-memory.jpg"}")`}} aria-hidden="true"/>}
       <div className="film-shade"/>
       <header className="film-header"><span>HERLIFE <span className="film-separator">/</span> THE MEMORY FILM</span><button aria-label="Close memories" onClick={close}><X size={20}/></button></header>
       {current&&<div className="film-story"><span className="film-label">{memoryCaption(current.name)?.title || 'A CHAPTER OF HER LIFE'}</span><h2 key={index}>{memoryCaption(current.name)?.quote || headings[Math.min(headings.length-1,Math.floor((index/scenes.length)*headings.length))]}</h2><p>{index+1} / {scenes.length}</p></div>}
