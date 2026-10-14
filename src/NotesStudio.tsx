@@ -1,6 +1,6 @@
 import {useCallback,useEffect,useRef,useState,type ChangeEvent} from 'react';
 import type {Session} from '@supabase/supabase-js';
-import {ArrowLeft,Bookmark,Check,CheckSquare,Folder,Grid2X2,Highlighter,ImagePlus,LayoutList,Menu,MoreVertical,PenLine,Plus,Search,Star,Trash2,Type,Undo2,Redo2,X,FileText,Download,Users,RefreshCw,Copy} from 'lucide-react';
+import {ArrowLeft,Bookmark,Check,CheckSquare,Folder,Grid2X2,Highlighter,ImagePlus,LayoutList,Menu,MoreVertical,PenLine,Plus,Search,Star,Trash2,Type,Undo2,Redo2,X,FileText,Download,Users} from 'lucide-react';
 import {supabase} from './lib/supabase';
 import {RichNoteEditor} from './RichNoteEditor';
 import {ShareDialog} from './ShareDialog';
