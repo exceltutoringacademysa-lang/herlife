@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import { Check, ChevronLeft, FilePlus2, PenLine, Plus, Search, Trash2, Undo2, Highlighter, Eraser, Pin, ListTodo, Heading } from 'lucide-react';
+import { Check, ChevronLeft, FilePlus2, PenLine, Plus, Search, Trash2, Undo2, Highlighter, Eraser, Pin, ListTodo, Heading, ImagePlus, X } from 'lucide-react';
 import { supabase } from './lib/supabase';
 type Kind = 'note'|'wardrobe'|'goal'|'journal';
 type Point = {x:number;y:number};
@@ -16,6 +16,8 @@ export function LifeStudio({session,kind}:Props){
  const [draft,setDraft]=useState<Item|null>(null);
  const [status,setStatus]=useState('');
  const [busy,setBusy]=useState(false);
+ const [uploading,setUploading]=useState(false);
+ const [mediaUrls,setMediaUrls]=useState<Record<string,string>>({});
  const [query,setQuery]=useState('');
  const [draw,setDraw]=useState(false);
  const [strokes,setStrokes]=useState<Stroke[]>([]);
@@ -82,6 +84,9 @@ export function LifeStudio({session,kind}:Props){
   },1100);
   return()=>window.clearTimeout(clock);
  },[editVersion,session.user.id,kind]);
+ useEffect(()=>{let alive=true;const attachments=Array.isArray(draft?.details.attachments)?draft.details.attachments.filter((x):x is string=>typeof x==='string'):[];if(!supabase||!attachments.length){setMediaUrls({});return;}Promise.all(attachments.map(async path=>{const {data}=await supabase!.storage.from('herlife-private-memories').createSignedUrl(path,3600);return [path,data?.signedUrl||''] as const;})).then(pairs=>{if(alive)setMediaUrls(Object.fromEntries(pairs));});return()=>{alive=false;};},[draft?.id,JSON.stringify(draft?.details.attachments)]);
+ async function uploadPhotos(files:FileList|null){if(!files?.length||!supabase||!draft)return;setUploading(true);const paths:string[]=[];for(const file of Array.from(files).slice(0,8)){if(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>10*1024*1024){setStatus('Use JPG, PNG or WebP pictures up to 10 MB each.');continue;}const path=session.user.id+'/notes/'+draft.id+'/'+crypto.randomUUID()+'.'+(file.type==='image/png'?'png':file.type==='image/webp'?'webp':'jpg');const {error}=await supabase.storage.from('herlife-private-memories').upload(path,file,{contentType:file.type,upsert:false});if(error)setStatus(error.message);else paths.push(path);}if(paths.length)detail('attachments',[...(Array.isArray(draft.details.attachments)?draft.details.attachments:[]),...paths]);setUploading(false);}
+ async function removePhoto(path:string){if(!supabase||!draft)return;const {error}=await supabase.storage.from('herlife-private-memories').remove([path]);if(error){setStatus(error.message);return;}detail('attachments',(Array.isArray(draft.details.attachments)?draft.details.attachments:[]).filter(x=>x!==path));}
  function edit(item:Item){setSelected(item.id);setDraft({...item,details:{...item.details}});setStatus('');}
  function create(){
   const item={id:crypto.randomUUID(),user_id:session.user.id,kind,title:'',body:'',details:{},updated_at:new Date().toISOString()};
@@ -127,7 +132,7 @@ export function LifeStudio({session,kind}:Props){
  const d=draft?.details??{};
  return <div className="life-studio">
   <div className="studio-heading"><div><p className="eyebrow">HERLIFE • YOUR PRIVATE SPACE</p><h1>{titleMap[kind]}</h1><p className="muted">{kind==='note'?'Write, organise and draw freely.':kind==='journal'?'A quiet page for your thoughts.':kind==='wardrobe'?'A personal catalogue of the pieces you own and love.':'Give your dreams a direction, a deadline and a plan.'}</p></div><button className="primary" onClick={create}><Plus size={18}/> {kind==='note'?'New note':kind==='journal'?'New entry':kind==='wardrobe'?'Add clothing':'New goal'}</button></div>
-  <div className="studio-layout">
+  <div className={"studio-layout "+(draft?"studio-editing":"studio-browsing")}>
    <aside className="studio-index"><div className="studio-search"><Search size={17}/><input aria-label="Search items" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search your collection"/></div>
     {(kind==='note'||kind==='journal')&&<div className="studio-folders">{folders.map(name=><button className={folder===name?'active':''} key={name} onClick={()=>setFolder(name)}>{name}</button>)}</div>}
     {filtered.length===0?<p className="empty">{query?'No matching items.':'Nothing here yet. Start with your first entry.'}</p>:filtered.map(item=><button key={item.id} onClick={()=>edit(item)} className={'studio-list-item '+(selected===item.id?'active':'')}><strong>{item.details.pinned?'📌 ':''}{item.title}</strong><span>{item.body.slice(0,85)|| (kind==='wardrobe'?getString(item.details,'category'):'Tap to open')}</span><small>{new Date(item.updated_at).toLocaleDateString('en-ZA',{day:'numeric',month:'short',year:'numeric'})}</small></button>)}
@@ -151,6 +156,7 @@ export function LifeStudio({session,kind}:Props){
      <label>Status<select value={getString(d,'status')||'Planning'} onChange={e=>detail('status',e.target.value)}>{['Planning','In progress','Paused','Completed'].map(x=><option key={x}>{x}</option>)}</select></label>
     </div><h3>Steps and milestones</h3></>}
     {(kind==='note'||kind==='journal')&&<div className="writing-actions"><button className="secondary" onClick={()=>detail('pinned',!d.pinned)}><Pin size={15}/>{d.pinned?'Unpin':'Pin'}</button><label>Folder<input placeholder="Personal" value={getString(d,'folder')} onChange={e=>detail('folder',e.target.value)} maxLength={60}/></label><button className="secondary" onClick={()=>update({body:draft.body+(draft.body?'\n':'')+'☐ '})}><ListTodo size={15}/> Checklist</button><button className="secondary" onClick={()=>update({body:draft.body+(draft.body?'\n':'')+'## '})}><Heading size={15}/> Heading</button></div>}
+    {(kind==='note'||kind==='journal')&&<><div className="note-media-toolbar"><label className="secondary note-add-photo"><ImagePlus size={16}/>{uploading?'Uploading…':'Add photo'}<input type="file" accept="image/jpeg,image/png,image/webp" multiple disabled={uploading} onChange={e=>{void uploadPhotos(e.target.files);e.target.value='';}}/></label><span className="tiny muted">Private images · max 10 MB each</span></div>{Array.isArray(d.attachments)&&d.attachments.length>0&&<div className="note-photo-grid">{d.attachments.filter((x):x is string=>typeof x==='string').map(path=><div key={path} className="note-photo">{mediaUrls[path]?<img src={mediaUrls[path]} alt="Attached photograph"/>:<span>Loading photo…</span>}<button type="button" aria-label="Remove photo" onClick={()=>void removePhoto(path)}><X size={15}/></button></div>)}</div>}</>}
     {(kind==='note'||kind==='journal')&&<div className="note-format">Write freely. Choose Draw for Apple Pencil or touch handwriting.</div>}
     <textarea className={'studio-body '+((kind==='note'||kind==='journal')?'note-page':'')} value={draft.body} onChange={e=>update({body:e.target.value})} placeholder={(kind==='note'||kind==='journal')?'Begin writing…':kind==='wardrobe'?'Fit, styling ideas, outfit combinations, notes…':'Why this matters, next steps, milestones and what success looks like…'} aria-label={(kind==='note'||kind==='journal')?'Writing body':'Details'} />
     {(kind==='note'||kind==='journal')&&draw&&<div className="drawing-section"><div className="drawing-tools"><strong>Handwriting</strong><div className="ink-actions"><button className="icon-btn" title="Pen" aria-label="Pen" aria-pressed={inkMode==='pen'} onClick={()=>setInkMode('pen')}><PenLine size={17}/></button><button className="icon-btn" title="Highlighter" aria-label="Highlighter" aria-pressed={inkMode==='highlighter'} onClick={()=>setInkMode('highlighter')}><Highlighter size={17}/></button><button className="icon-btn" title="Erase last stroke" aria-label="Erase last stroke" onClick={()=>{latest.current=latest.current.slice(0,-1);setStrokes(latest.current);}}><Eraser size={17}/></button><button className="icon-btn" title="Undo" aria-label="Undo" onClick={()=>{latest.current=latest.current.slice(0,-1);setStrokes(latest.current);}}><Undo2 size={17}/></button><input type="color" aria-label="Ink colour" value={inkColor} onChange={e=>setInkColor(e.target.value)}/></div></div><canvas className="note-canvas" ref={canvas} onPointerDown={start} onPointerMove={move} onPointerUp={stop} onPointerCancel={stop} aria-label="Freehand writing canvas for stylus or finger"/></div>}
