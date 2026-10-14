@@ -2,6 +2,7 @@
 // A valid approved HerLife session is required before any provider request.
 const json=(res,status,data)=>res.status(status).setHeader('Cache-Control','no-store').json(data);
 const LIMIT=3500;
+const APP_CAPABILITIES='HerLife sections: Home dashboard, Bible reader (KJV/WEB by reference; highlights, bookmarks and notes saved locally), Bible memory (user-chosen KJV passages), private Journal and Notes (autosave, handwriting, folders), Planner, events and open-app reminders (not reliable closed-app alarms), Wardrobe, Habits, Goals, manual Finances and savings, approved-feed-only Boutique (may be empty), Shopping Bag, Calculator, Games and Debate Room, SLP Clinical Reasoning Studio with 100 curated practice activities, private uploaded Memories, cinematic first-login memory film, Focus Timer, themes, Settings, and this optional Companion. Explain navigation and limitations accurately. Do not claim you can see or edit these records or navigate on behalf of the user.';
 const styles={
  general:'Help with HerLife features, routines, goals, calendar planning, budgeting concepts, faith questions and general everyday learning. Explain actionable steps. Do not claim to have read or updated her account data or files. No hidden access to personal information.',
  debate:'Be an excellent fair-minded competitive debate opponent. Take the opposite side of the user\'s stated proposition or position, challenge assumptions and give a persuasive concise opening or rebuttal. Ask one sharp cross-examination question. When the user asks for coaching, give balanced strengths, weaknesses and opportunities to improve rather than automatically agreeing. Never attack the person.',
@@ -25,13 +26,15 @@ export default async function handler(req,res){
  const member=await fetch(url+'/rest/v1/app_members?select=user_id&user_id=eq.'+encodeURIComponent(user.id)+'&limit=1',{headers:{apikey:anon,Authorization:'Bearer '+token}});
  const members=await member.json().catch(()=>null);
  if(!member.ok||!Array.isArray(members)||members.length===0)return json(res,403,{error:'This account is not authorised for HerLife.'});
- const {mode,messages}=req.body||{};
+ const {mode,messages,audio}=req.body||{};
  if(!Object.hasOwn(styles,mode)||!Array.isArray(messages)||!messages.length||messages.length>14)return json(res,400,{error:'Invalid conversation.'});
  const safe=messages.map(m=>({role:m?.role,text:m?.text})).filter(m=>(m.role==='user'||m.role==='assistant')&&typeof m.text==='string'&&m.text.length>0&&m.text.length<=LIMIT);
  if(safe.length!==messages.length||safe[safe.length-1].role!=='user')return json(res,400,{error:'Invalid message content.'});
  const total=safe.reduce((n,m)=>n+m.text.length,0);
+ const validAudio=audio&&typeof audio.mimeType==='string'&&/^(audio\/(webm|mp4|ogg|mpeg|wav|x-m4a)|video\/mp4)(;.*)?$/.test(audio.mimeType)&&typeof audio.data==='string'&&audio.data.length<5500000&&/^[A-Za-z0-9+/]+=*$/.test(audio.data);
+ if(audio&&!validAudio)return json(res,413,{error:'Voice note unsupported or too large (maximum ~4 MB).'});
  if(total>12000)return json(res,413,{error:'Conversation too long; start a fresh chat.'});
- const body={systemInstruction:{parts:[{text:'You are HerLife Companion. Warm, intelligent, accurate, tactful and concise. Optional assistant for Anelisa, a private HerLife user. Never imply you can view photos, videos, journal, finances or calendar; only the text explicitly sent in this request is visible. No actions or privileged access. Never ask for real patient-identifiable details. If uncertain, say so. '+styles[mode]}]},contents:safe.map(m=>({role:m.role==='user'?'user':'model',parts:[{text:m.text}]})),generationConfig:{temperature:mode==='debate'?0.78:0.45,maxOutputTokens:700}};
+ const body={systemInstruction:{parts:[{text:'You are HerLife Companion. Warm, intelligent, accurate, tactful and concise. Optional assistant for Anelisa, a private HerLife user. Never imply you can view photos, videos, journal, finances or calendar; only the text explicitly sent in this request is visible. No actions or privileged access. Never ask for real patient-identifiable details. If uncertain, say so. '+APP_CAPABILITIES+' '+styles[mode]}]},contents:safe.map((m,i)=>({role:m.role==='user'?'user':'model',parts:[{text:m.text},...(validAudio&&i===safe.length-1?[{inlineData:{mimeType:audio.mimeType.split(';')[0],data:audio.data}}]:[])]})),generationConfig:{temperature:mode==='debate'?0.78:0.45,maxOutputTokens:700}};
  const controller=new AbortController(),alarm=setTimeout(()=>controller.abort(),18000);
  try{
   const model=process.env.HERLIFE_GEMINI_MODEL||'gemini-3.5-flash-lite';
