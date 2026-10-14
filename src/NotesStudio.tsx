@@ -18,7 +18,8 @@ export function NotesStudio({session,kind}:{session:Session;kind:Kind}){
  const [extraFolders,setExtraFolders]=useState<string[]>(()=>{try{return JSON.parse(localStorage.getItem('herlife-folders-'+session.user.id+'-'+kind)||'[]') as string[];}catch{return [];}});
  const [menu,setMenu]=useState(false),[editingMenu,setEditingMenu]=useState(false),[sort,setSort]=useState<'recent'|'title'|'oldest'>('recent'),[message,setMessage]=useState(''),[saving,setSaving]=useState(false);
  const [sharing,setSharing]=useState(false),[permissions,setPermissions]=useState<Record<string,'view'|'edit'>>({}),[conflict,setConflict]=useState(false);
- const revision=useRef<{id:string;at:string}|null>(null),inFlight=useRef(0);
+ const revision=useRef<{id:string;at:string}|null>(null),inFlight=useRef(0),editNumber=useRef(0),savedNumber=useRef(0);
+ const [editSignal,setEditSignal]=useState(0);
  const [attachments,setAttachments]=useState<Record<string,string>>({}),[uploading,setUploading]=useState(false),[preview,setPreview]=useState(false),[font,setFont]=useState(17);
  const [undo,setUndo]=useState<string[]>([]),[redo,setRedo]=useState<string[]>([]);
  const textRef=useRef<HTMLTextAreaElement>(null),draftRef=useRef<Item|null>(null),pending=useRef(0),writeChain=useRef<Promise<unknown>>(Promise.resolve());
@@ -30,7 +31,7 @@ export function NotesStudio({session,kind}:{session:Session;kind:Kind}){
  const persist=useCallback((item:Item)=>{
   if(!supabase)return Promise.resolve(false);
   if(conflict){setMessage('Resolve the edit conflict before saving.');return Promise.resolve(false);}
-  const token=++pending.current;setSaving(true);
+  const token=++pending.current;const changesToSave=editNumber.current;setSaving(true);
   const snapshot={...item,title:item.title.trim()||'Untitled',updated_at:new Date().toISOString()};
   const send=async()=>{
    inFlight.current++;
@@ -42,14 +43,14 @@ export function NotesStudio({session,kind}:{session:Session;kind:Kind}){
    inFlight.current=Math.max(0,inFlight.current-1);
    const {data,error}=result;
    if(error){if(token===pending.current){setSaving(false);setMessage(error.message);if(error.message.includes('EDIT_CONFLICT'))setConflict(true);}return false;}
-   const saved=data as Item;revision.current={id:item.id,at:saved.updated_at};
+   const saved=data as Item;revision.current={id:item.id,at:saved.updated_at};savedNumber.current=Math.max(savedNumber.current,changesToSave);
    setItems(old=>[saved,...old.filter(x=>x.id!==item.id)]);
    if(token===pending.current){setSaving(false);setMessage('All changes saved');}
    return true;
   };
   writeChain.current=writeChain.current.then(send,send);return writeChain.current as Promise<boolean>;
  },[conflict,session.user.id]);
- useEffect(()=>{if(!draft||conflict||permissions[draft.id]==='view')return;const current= draft;const timeout=window.setTimeout(()=>{void persist(current);},850);return()=>clearTimeout(timeout);},[draft,persist]);
+ useEffect(()=>{if(!draft||conflict||permissions[draft.id]==='view'||editSignal<=savedNumber.current)return;const current=draft;const timeout=window.setTimeout(()=>{void persist(current);},850);return()=>clearTimeout(timeout);},[draft,editSignal,persist,conflict,permissions]);
  useEffect(()=>{let live=true;const d=draft;const files=d?paths(d.details):[];if(!files.length){setAttachments({});return;}
   void Promise.all(files.map(async p=>{const {data}=await supabase!.storage.from('herlife-private-memories').createSignedUrl(p,3600);return [p,data?.signedUrl||''] as const;})).then(x=>{if(live)setAttachments(Object.fromEntries(x));});
   return()=>{live=false;};},[draft?.id,JSON.stringify(draft?.details.attachments)]);
@@ -60,11 +61,11 @@ export function NotesStudio({session,kind}:{session:Session;kind:Kind}){
   }).subscribe();
   return()=>{void client.removeChannel(channel);};
  },[draft?.id]);
- function patch(edit:(d:Item)=>Item){setDraft(old=>old?edit(old):old);}
+ function patch(edit:(d:Item)=>Item){editNumber.current++;setEditSignal(editNumber.current);setDraft(old=>old?edit(old):old);}
  function changeBody(v:string){if(draft){setUndo(a=>[...a.slice(-34),draft.body]);setRedo([]);}patch(d=>({...d,body:v,details:{...d.details,richHtml:''}}));}
- async function back(){if(draft&&!conflict&&permissions[draft.id]!=='view'){const current=draft;setDraft(null);await persist(current);}else setDraft(null);setPreview(false);setEditingMenu(false);}
- function edit(item:Item){revision.current={id:item.id,at:item.updated_at};setConflict(false);setSharing(false);setDraft({...item,details:{...item.details}});setUndo([]);setRedo([]);setPreview(false);setDrawer(false);setMessage('');}
- function create(){const item=fresh(session.user.id,kind);revision.current=null;setConflict(false);setDraft(item);setMessage('');setUndo([]);setRedo([]);setPreview(false);setDrawer(false);}
+ async function back(){if(draft&&!conflict&&permissions[draft.id]!=='view'&&editNumber.current>savedNumber.current){const current=draft;setDraft(null);await persist(current);}else setDraft(null);setPreview(false);setEditingMenu(false);}
+ function edit(item:Item){editNumber.current=0;savedNumber.current=0;setEditSignal(0);revision.current={id:item.id,at:item.updated_at};setConflict(false);setSharing(false);setDraft({...item,details:{...item.details}});setUndo([]);setRedo([]);setPreview(false);setDrawer(false);setMessage('');}
+ function create(){const item=fresh(session.user.id,kind);editNumber.current=0;savedNumber.current=0;setEditSignal(0);revision.current=null;setConflict(false);setDraft(item);setMessage('');setUndo([]);setRedo([]);setPreview(false);setDrawer(false);}
  async function dispose(){if(!draft||draft.user_id!==session.user.id)return;const item={...draft,details:{...draft.details,deletedAt:new Date().toISOString()}};const ok=await persist(item);if(ok){setDraft(null);setActive('All notes');}}
  async function restore(item:Item){const details={...item.details};delete details.deletedAt;await persist({...item,details});}
  async function permanent(item:Item){if(!window.confirm('Permanently delete this entry? This cannot be undone.'))return;await writeChain.current;const {error}=await supabase!.from('life_items').delete().eq('id',item.id).eq('user_id',session.user.id);if(error){setMessage(error.message);return;}setItems(x=>x.filter(y=>y.id!==item.id));}
@@ -90,7 +91,7 @@ export function NotesStudio({session,kind}:{session:Session;kind:Kind}){
   {paths(draft.details).length>0&&<div className="rn-attachments">{paths(draft.details).map(p=><div key={p} className="rn-image">{attachments[p]?<img src={attachments[p]} alt="Note attachment" loading="lazy"/>:<span>Opening photo…</span>}<button aria-label="Remove attached picture" disabled={!canEdit} onClick={()=>void removePhoto(p)}><X size={16}/></button></div>)}</div>}
   </div>
   {preview&&<div className="rn-writing-tools" aria-label="Legacy text formatting toolbar"><button title="Handwriting mode is not yet in this editor" disabled><PenLine size={20}/></button><button aria-label="Insert checklist" onClick={()=>format('☐ ','','Task')}><CheckSquare size={20}/></button><button aria-label="Bold" onClick={()=>format('**','**')}><Type size={20}/></button><button aria-label="Highlight syntax" onClick={()=>format('==','==')}><Highlighter size={19}/></button><button aria-label="Heading" onClick={()=>format('## ','','Heading')}><Bookmark size={19}/></button><button aria-label="Smaller font" onClick={()=>setFont(v=>Math.max(14,v-1))}>A−</button><button aria-label="Larger font" onClick={()=>setFont(v=>Math.min(28,v+1))}>A+</button><button aria-label="Undo" disabled={!undo.length} onClick={()=>history(true)}><Undo2 size={20}/></button><button aria-label="Redo" disabled={!redo.length} onClick={()=>history(false)}><Redo2 size={20}/></button></div>}
-  {conflict&&<div role="alert" className="rn-conflict"><strong>This note changed on another device.</strong><p>Your edits have not replaced the newer version.</p><button onClick={async()=>{const {data}=await supabase!.from('life_items').select('*').eq('id',draft.id).single();if(data)edit(data as Item);}}>Reload latest</button><button onClick={()=>{const copy={...draft,id:crypto.randomUUID(),user_id:session.user.id,title:(draft.title||'Untitled')+' (local copy)'};revision.current=null;setConflict(false);setDraft(copy);}}>Keep my work as a copy</button></div>}
+  {conflict&&<div role="alert" className="rn-conflict"><strong>This note changed on another device.</strong><p>Your edits have not replaced the newer version.</p><button onClick={async()=>{const {data}=await supabase!.from('life_items').select('*').eq('id',draft.id).single();if(data)edit(data as Item);}}>Reload latest</button><button onClick={()=>{const copy={...draft,id:crypto.randomUUID(),user_id:session.user.id,title:(draft.title||'Untitled')+' (local copy)'};revision.current=null;editNumber.current=1;savedNumber.current=0;setEditSignal(1);setConflict(false);setDraft(copy);}}>Keep my work as a copy</button></div>}
   {sharing&&<ShareDialog session={session} noteId={draft.id} ownerId={draft.user_id} onClose={()=>setSharing(false)}/>}
   <div className="rn-bottom-status" role="status">{uploading?'Uploading images…':message|| (saving?'Saving…':'Autosave on')}<button onClick={()=>void persist(draft)} disabled={saving||!canEdit||conflict}><Check size={14}/> Save</button></div>
  </>:<>
