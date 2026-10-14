@@ -1,0 +1,17 @@
+import {useEffect,useState,type FormEvent} from 'react';
+import type {Session} from '@supabase/supabase-js';
+import {X,UserPlus,Lock,Trash2} from 'lucide-react';
+import {supabase} from './lib/supabase';
+type Invitation={note_id:string;owner_id:string;collaborator_id:string;access:'view'|'edit';created_at:string};
+export function ShareDialog({session,noteId,ownerId,onClose}:{session:Session;noteId:string;ownerId:string;onClose:()=>void}){
+ const [email,setEmail]=useState(''),[access,setAccess]=useState<'edit'|'view'>('edit'),[members,setMembers]=useState<Invitation[]>([]),[busy,setBusy]=useState(false),[notice,setNotice]=useState('');
+ const owner=ownerId===session.user.id;
+ async function load(){const {data,error}=await supabase!.from('note_shares').select('*').eq('note_id',noteId);if(error)setNotice('Cannot load sharing permissions.');else setMembers((data||[]) as Invitation[]);}
+ useEffect(()=>{void load();},[noteId]);
+ async function invite(e:FormEvent){e.preventDefault();if(!owner||!email.trim()||busy)return;setBusy(true);setNotice('');const {data,error}=await supabase!.rpc('invite_note_member',{p_note:noteId,p_email:email.trim(),p_access:access});setBusy(false);if(error)setNotice(error.message);else if(!data)setNotice('Invitation unavailable. The person must have an approved HerLife account.');else{setNotice('Access granted to that approved account.');setEmail('');await load();}}
+ async function revoke(member:Invitation){if(!window.confirm(owner?'Revoke access to this private note?':'Leave this shared note?'))return;const {error}=await supabase!.from('note_shares').delete().eq('note_id',noteId).eq('collaborator_id',member.collaborator_id);if(error)setNotice(error.message);else{setNotice('Access updated.');await load();}}
+ return <div className="share-overlay" role="dialog" aria-modal="true" aria-label="Note sharing"><div className="share-dialog"><header><div><h2>Collaborate privately</h2><p>Only approved HerLife members you invite can access this note.</p></div><button aria-label="Close sharing" onClick={onClose}><X size={20}/></button></header>
+ {owner&&<form onSubmit={e=>void invite(e)}><label>Approved member's email address<input type="email" required placeholder="Their registered email" value={email} onChange={e=>setEmail(e.target.value)}/></label><label>Permission<select value={access} onChange={e=>setAccess(e.target.value as 'edit'|'view')}><option value="edit">Can edit</option><option value="view">Can view</option></select></label><button type="submit" disabled={busy}><UserPlus size={17}/>{busy?'Inviting…':'Give access'}</button></form>}
+ <h3>Access list</h3>{members.length?members.map(m=><div key={m.collaborator_id} className="share-member"><div><strong>{m.collaborator_id===session.user.id?'You':'Approved member'}</strong><small>{m.access==='edit'?'Can edit':'Can view'} · {m.collaborator_id.slice(0,8)}…</small></div>{(owner||m.collaborator_id===session.user.id)&&<button aria-label="Revoke or leave" onClick={()=>void revoke(m)}><Trash2 size={17}/></button>}</div>):<p className="muted">This note has no collaborators yet.</p>}
+ {notice&&<p role="status" className="special-message">{notice}</p>}<p className="share-privacy"><Lock size={16}/> These are named-account permissions, not publicly accessible links. Changes from other editors require conflict-safe synchronisation, and simultaneous edits can need reloading.</p></div></div>;
+}

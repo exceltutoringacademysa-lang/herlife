@@ -43,3 +43,5 @@ import './phone-editor-fix.css';
 import './notes-studio.css';
 
 import './rich-note-editor.css';
+
+import './multimedia-notes.css';
