@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import { Images, Gamepad2, Store, Calculator, ShoppingBag, Shirt, StickyNote, BookOpen, CalendarDays, Check, ChevronLeft, ChevronRight, Heart, LayoutDashboard, ListChecks, LogOut, Menu, Moon, NotebookPen, Plus, Settings, Sun, Target, Trash2, Wallet, X, BrainCircuit, Timer, PiggyBank, Palette, GraduationCap, ImagePlus, Sparkles } from 'lucide-react';
+import { Images, Gamepad2, Store, Calculator, ShoppingBag, Shirt, StickyNote, BookOpen, CalendarDays, Check, ChevronLeft, ChevronRight, Heart, LayoutDashboard, ListChecks, LogOut, Menu, Moon, NotebookPen, Plus, Settings, Sun, Target, Trash2, Wallet, X, BrainCircuit, Timer, PiggyBank, Palette, GraduationCap, ImagePlus, Sparkles, Music2, Clapperboard } from 'lucide-react';
 import { BRAND, dailyReadingReference } from './brand';
 import { isConfigured, supabase } from './lib/supabase';
 import { calendarMonthGrid, localISODate } from './lib/dates';
@@ -22,10 +22,11 @@ import {BibleMemory,FinanceTracker,FocusTimer,AppearanceStudio,MemoryCoverPicker
 import {PrivateMemoryGallery} from './PrivateMemoryGallery';
 import {SLPPractice} from './SLPPractice';
 import {HerLifeCompanion} from './HerLifeCompanion';
+import {MusicStudio,CinemaStudio,MusicDock} from './MusicCinema';
 import { ForegroundReminderAlerts } from './ForegroundReminderAlerts';
 import { calculateNetCashFlow, parseTransactionAmount } from './lib/finance';
 
-type Section = 'home' | 'faith' | 'planner' | 'journal' | 'notes' | 'wardrobe' | 'habits' | 'goals' | 'finances' | 'boutique' | 'shopping' | 'calculator' | 'events' | 'games' | 'bible-memory' | 'focus' | 'savings' | 'themes' | 'memory-cover' | 'private-memories' | 'slp' | 'companion' | 'settings';
+type Section = 'home' | 'faith' | 'planner' | 'journal' | 'notes' | 'wardrobe' | 'habits' | 'goals' | 'finances' | 'boutique' | 'shopping' | 'calculator' | 'events' | 'games' | 'bible-memory' | 'focus' | 'savings' | 'themes' | 'memory-cover' | 'private-memories' | 'slp' | 'companion' | 'music' | 'cinema' | 'settings';
 type HabitCheckin = { habit_id: string; completed_on: string };
 type Entry = { id: string; kind: 'task'|'journal'|'habit'|'goal'|'transaction'|'prayer'|'quiet_time'; title: string; content: string; value: number; done: boolean; created_at: string; due_date: string|null };
 const nav = [
@@ -50,6 +51,8 @@ const nav = [
   { id: 'private-memories', label: 'Upload memories', icon: ImagePlus },
   { id: 'slp', label: 'SLP clinical practice', icon: GraduationCap },
   { id: 'companion', label: 'AI companion & debate', icon: Sparkles },
+  { id: 'music', label: 'HerLife Music', icon: Music2 },
+  { id: 'cinema', label: 'HerLife Cinema', icon: Clapperboard },
   { id: 'settings', label: 'Settings', icon: Settings },
 ] as const;
 const formatDate = (date: Date) => new Intl.DateTimeFormat('en-ZA', { weekday:'long', day:'numeric', month:'long', year:'numeric' }).format(date);
@@ -303,6 +306,8 @@ export default function App() {
       {section==='private-memories'&&<PrivateMemoryGallery session={session}/>}
       {section==='slp'&&<SLPPractice session={session}/>}
       {section==='companion'&&<HerLifeCompanion session={session}/>}
+      {section==='music'&&<MusicStudio session={session}/>}
+      {section==='cinema'&&<CinemaStudio session={session}/>}
       {section==='notes'&&<NotesStudio session={session} kind="note"/>}
       {section==='goals'&&<><FutureVision goals={groups.goals} session={session}/><GoalMilestoneBoard session={session}/><LifeStudio session={session} kind="goal"/></>}
       {section==='wardrobe'&&<LifeStudio session={session} kind="wardrobe"/>}
@@ -313,6 +318,7 @@ export default function App() {
       {section==='settings'&&<><Heading kicker="MADE FOR YOUR JOURNEY" title="Settings" subtitle="Choose what feels comfortable while keeping your space secure."/><section className="card section-card settings-list"><InstallHerLife/><div className="setting-row"><div><h3>Appearance</h3><p className="muted">A consistent purple identity in light and dark themes.</p></div><button className="secondary" onClick={()=>setDark(!dark)}>{dark?'Light mode':'Dark mode'}</button></div><div className="setting-row"><div><h3>Private data export</h3><p className="muted">Download your entries as a JSON file.</p></div><button className="secondary" onClick={downloadData}>Export entries</button></div><div className="setting-row"><div><h3>Account</h3><p className="muted">Signed in as {session.user.email}</p></div><button className="secondary" onClick={()=>supabase?.auth.signOut()}><LogOut size={16}/> Sign out</button></div><div className="setting-row"><div><h3>About {BRAND.appName}</h3><p className="muted">{BRAND.tagline}</p><p className="tiny muted">{BRAND.developerCredit}</p></div></div></section></>}
     </main></div>
 
+    <MusicDock open={()=>setSection('music')}/>
     <nav className="mobile-tabbar" aria-label="Quick navigation">{[
       nav[0],nav[1],nav[2],nav[3],nav.find(item=>item.id==='settings')!
     ].map(item=><button key={item.id} type="button" className={section===item.id?'selected':''} aria-current={section===item.id?'page':undefined} onClick={()=>{if(item.id==='settings'){setMobileMenu(true);return;}setSection(item.id);setError('');setNotice('');window.scrollTo({top:0,behavior:'smooth'});}}><item.icon size={21} strokeWidth={section===item.id?2.3:1.8}/><span>{item.id==='home'?'Home':item.id==='faith'?'Bible':item.id==='planner'?'Plan':item.id==='journal'?'Journal':'More'}</span></button>)}</nav>
