@@ -1,6 +1,6 @@
 import {useEffect,useState} from 'react';
 import type {Session} from '@supabase/supabase-js';
-import {BookOpen,Film,UploadCloud,CheckCircle2} from 'lucide-react';
+import {BookOpen,Film,UploadCloud} from 'lucide-react';
 import {supabase} from './lib/supabase';
 import {sourceQuestions,slpSources,videoPrompts} from './slpCourseMaterials';
 import {AIReview} from './AIReview';
