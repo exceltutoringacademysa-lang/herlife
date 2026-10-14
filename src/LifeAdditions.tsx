@@ -3,28 +3,8 @@ import type {Session} from '@supabase/supabase-js';
 import type {FormEvent} from 'react';
 import {memoryStory} from './memoryStory';
 import {BookOpen,Clock,Mic,MicOff,Play,Pause,RotateCcw,Check,Wallet,Palette,ChevronRight} from 'lucide-react';
-const passages=[
- {ref:'Psalm 23:1',text:'The LORD is my shepherd; I shall not want.',missing:'shepherd'},
- {ref:'Proverbs 3:5',text:'Trust in the LORD with all thine heart; and lean not unto thine own understanding.',missing:'Trust'},
- {ref:'Philippians 4:13',text:'I can do all things through Christ which strengtheneth me.',missing:'Christ'},
- {ref:'Psalm 119:105',text:'Thy word is a lamp unto my feet, and a light unto my path.',missing:'lamp'},
- {ref:'John 3:16',text:'For God so loved the world, that he gave his only begotten Son, that whosoever believeth in him should not perish, but have everlasting life.',missing:'loved'},
- {ref:'Romans 8:28',text:'And we know that all things work together for good to them that love God, to them who are the called according to his purpose.',missing:'good'},
- {ref:'Joshua 1:9',text:'Have not I commanded thee? Be strong and of a good courage; be not afraid, neither be thou dismayed: for the LORD thy God is with thee whithersoever thou goest.',missing:'courage'},
- {ref:'Matthew 5:14',text:'Ye are the light of the world. A city that is set on an hill cannot be hid.',missing:'light'},
- {ref:'1 Thessalonians 5:17',text:'Pray without ceasing.',missing:'Pray'},
- {ref:'Psalm 46:10',text:'Be still, and know that I am God: I will be exalted among the heathen, I will be exalted in the earth.',missing:'still'},
- {ref:'Hebrews 11:1',text:'Now faith is the substance of things hoped for, the evidence of things not seen.',missing:'faith'},
- {ref:'Matthew 6:33',text:'But seek ye first the kingdom of God, and his righteousness; and all these things shall be added unto you.',missing:'kingdom'},
- {ref:'James 1:5',text:'If any of you lack wisdom, let him ask of God, that giveth to all men liberally, and upbraideth not; and it shall be given him.',missing:'wisdom'},
- {ref:'Psalm 121:2',text:'My help cometh from the LORD, which made heaven and earth.',missing:'help'},
- {ref:'Isaiah 40:31',text:'But they that wait upon the LORD shall renew their strength; they shall mount up with wings as eagles; they shall run, and not be weary; and they shall walk, and not faint.',missing:'strength'},
- {ref:'Romans 12:12',text:'Rejoicing in hope; patient in tribulation; continuing instant in prayer;',missing:'hope'},
- {ref:'Colossians 3:23',text:'And whatsoever ye do, do it heartily, as to the Lord, and not unto men;',missing:'heartily'},
- {ref:'Psalm 37:4',text:'Delight thyself also in the LORD: and he shall give thee the desires of thine heart.',missing:'Delight'},
- {ref:'1 Corinthians 13:4',text:'Charity suffereth long, and is kind; charity envieth not; charity vaunteth not itself, is not puffed up,',missing:'kind'},
- {ref:'Lamentations 3:23',text:'They are new every morning: great is thy faithfulness.',missing:'faithfulness'}
-];
+type MemoryPassage={ref:string;text:string;missing:string};
+const defaultPassage:MemoryPassage={ref:'Psalm 23:1',text:'The LORD is my shepherd; I shall not want.',missing:'shepherd'};
 type BibleMode='flash'|'missing'|'initial'|'voice';
 type Tracking={savings:{id:string;name:string;target:number;amount:number}[];investments:{id:string;name:string;contributions:number;value:number}[];practice:string[]};
 const initial:Tracking={savings:[],investments:[],practice:[]};
@@ -36,22 +16,44 @@ export function BibleMemory({session}:{session:Session}){
  const [mode,setMode]=useState<BibleMode>('flash'),[index,setIndex]=useState(0),[revealed,setRevealed]=useState(false),[input,setInput]=useState(''),[feedback,setFeedback]=useState('');
  const [recording,setRecording]=useState(false),[voiceUrl,setVoiceUrl]=useState('');
  const stream=useRef<MediaStream|null>(null),recorder=useRef<MediaRecorder|null>(null),chunks=useRef<Blob[]>([]);
- const verse=passages[index%passages.length];
+ const [passageQuery,setPassageQuery]=useState('Psalm 23:1');
+ const [verse,setVerse]=useState<MemoryPassage>(defaultPassage);
+ const [passageError,setPassageError]=useState(''),[passageLoading,setPassageLoading]=useState(false);
+ const [recent,setRecent]=useState<string[]>(()=>{try{return JSON.parse(localStorage.getItem('herlife-memory-references-'+session.user.id)||'[]') as string[];}catch{return [];}});
+ useEffect(()=>{localStorage.setItem('herlife-memory-references-'+session.user.id,JSON.stringify(recent));},[session.user.id,recent]);
+ async function choosePassage(ref=passageQuery){
+  const inputRef=ref.trim();if(!inputRef||inputRef.length>80)return;
+  setPassageLoading(true);setPassageError('');
+  try{
+   const response=await fetch('https://bible-api.com/'+encodeURIComponent(inputRef)+'?translation=kjv');
+   if(!response.ok)throw Error('The passage was not found. Try a reference such as John 3:16.');
+   const result=await response.json() as {reference?:string;verses?:{text:string}[]};
+   const text=(result.verses||[]).map(v=>v.text.trim()).join(' ').trim();
+   if(!text)throw Error('No KJV passage was returned.');
+   const words=text.match(/[A-Za-z']+/g)||[];
+   const word=words.find(w=>w.length>4)||words[0]||'';
+   setVerse({ref:result.reference||inputRef,text,missing:word});setPassageQuery(result.reference||inputRef);
+   setRecent(old=>[inputRef,...old.filter(r=>r!==inputRef)].slice(0,25));
+   setInput('');setFeedback('');setRevealed(false);
+  }catch(error){setPassageError(error instanceof Error?error.message:'Unable to load KJV scripture.');}finally{setPassageLoading(false);}
+ }
+
  useEffect(()=>{localStorage.setItem(storage,JSON.stringify(data));},[data,storage]);
  useEffect(()=>()=>{recorder.current?.state==='recording'&&recorder.current.stop();stream.current?.getTracks().forEach(t=>t.stop());},[]);
  const practiced=new Set(data.practice);
  const streak=useMemo(()=>{let n=0;const d=new Date();while(true){const date=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');if(!practiced.has(date))break;n++;d.setDate(d.getDate()-1);}return n;},[data.practice]);
- function next(){setIndex(x=>x+1);setRevealed(false);setInput('');setFeedback('');}
+ function next(){setRevealed(false);setInput('');setFeedback('');setPassageQuery('');}
  function mark(){const now=new Date();const date=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');setData(v=>({...v,practice:v.practice.includes(date)?v.practice:[...v.practice,date]}));setFeedback('Practice recorded for today.');}
  async function record(){if(recording){recorder.current?.stop();setRecording(false);return;}if(!navigator.mediaDevices?.getUserMedia||typeof MediaRecorder==='undefined'){setFeedback('Audio recording is not supported in this browser.');return;}try{const media=await navigator.mediaDevices.getUserMedia({audio:true});stream.current=media;chunks.current=[];const rec=new MediaRecorder(media);recorder.current=rec;rec.ondataavailable=e=>{if(e.data.size)chunks.current.push(e.data);};rec.onstop=()=>{setVoiceUrl(old=>{if(old)URL.revokeObjectURL(old);return URL.createObjectURL(new Blob(chunks.current,{type:rec.mimeType}));});media.getTracks().forEach(t=>t.stop());};rec.start();setRecording(true);}catch{setFeedback('Microphone access was not granted.');}}
  const blank=verse.text.replace(new RegExp('\\b'+verse.missing+'\\b','i'),'_____');
  return <section className="special-page"><header className="special-heading"><BookOpen/><div><p className="eyebrow">BIBLE MEMORY</p><h1>Remember the Word</h1><p>Learn real verses from the public-domain King James Version.</p></div></header>
  <div className="special-summary"><span><strong>{streak}</strong> day streak</span><span><strong>{data.practice.length}</strong> practice days recorded on this device</span></div>
+ <form className="bible-memory-picker" onSubmit={e=>{e.preventDefault();void choosePassage();}}><label htmlFor="memory-reference">Choose any KJV Scripture</label><div><input id="memory-reference" value={passageQuery} onChange={e=>setPassageQuery(e.target.value)} placeholder="e.g. Romans 8:28" required/><button type="submit" className="primary" disabled={passageLoading}>{passageLoading?'Loading…':'Use passage'}</button></div>{passageError&&<p role="alert">{passageError}</p>}{recent.length>0&&<div className="memory-recents">{recent.map(ref=><button key={ref} type="button" onClick={()=>void choosePassage(ref)}>{ref}</button>)}</div>}</form>
  <div className="special-tabs">{([['flash','Flashcards'],['missing','Missing word'],['initial','First letters'],['voice','Voice practice']] as const).map(([id,label])=><button key={id} className={mode===id?'active':''} onClick={()=>{setMode(id);setInput('');setFeedback('');}}>{label}</button>)}</div>
- <div className="special-paper"><small>{verse.ref} · KJV · {index+1}/{passages.length}</small>
+ <div className="special-paper"><small>{verse.ref} · KJV · Your selected passage</small>
  {mode==='flash'?<><h2>{revealed?verse.text:'Take a moment and recall the verse.'}</h2><button className="secondary" onClick={()=>setRevealed(x=>!x)}>{revealed?'Hide verse':'Reveal verse'}</button></>:mode==='missing'?<><h2>{blank}</h2><label>Fill in the missing word<input value={input} onChange={e=>setInput(e.target.value)} placeholder="Type your answer"/></label><button className="secondary" onClick={()=>setFeedback(input.trim().toLowerCase()===verse.missing.toLowerCase()?'Correct!':'Answer: '+verse.missing)}>Check answer</button></>:mode==='initial'?<><h2>{verse.text.split(' ').map(w=>w.replace(/[A-Za-z]/g,(letter,i)=>i===0?letter:'_')).join(' ')}</h2><button className="secondary" onClick={()=>setRevealed(x=>!x)}>{revealed?'Hide full verse':'Show full verse'}</button>{revealed&&<p>{verse.text}</p>}</>:<><h2>{verse.text}</h2><p>Read or recite this verse aloud. You can listen back to your own recording.</p><button className="secondary" onClick={()=>void record()}>{recording?<MicOff size={17}/>:<Mic size={17}/>} {recording?'Stop recording':'Record voice'}</button>{voiceUrl&&<audio controls src={voiceUrl}/>}<p className="tiny muted">Recordings stay temporarily on this device and are not uploaded.</p></>}
  {feedback&&<p className="special-message" role="status">{feedback}</p>}
- <div className="special-actions"><button className="secondary" onClick={next}>Next verse <ChevronRight size={17}/></button><button className="primary" onClick={mark}><Check size={17}/> Mark practised</button></div></div></section>;
+ <div className="special-actions"><button className="secondary" onClick={next}>Choose another verse <ChevronRight size={17}/></button><button className="primary" onClick={mark}><Check size={17}/> Mark practised</button></div></div></section>;
 }
 export function FinanceTracker({session}:{session:Session}){
  const storage='herlife-finance-tracker-'+session.user.id;const [data,setData]=useState<Tracking>(()=>read(storage));const [tab,setTab]=useState<'savings'|'investments'>('savings');const [name,setName]=useState(''),[amount,setAmount]=useState(''),[target,setTarget]=useState('');
