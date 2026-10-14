@@ -22,7 +22,7 @@ import {BibleMemory,FinanceTracker,FocusTimer,AppearanceStudio,MemoryCoverPicker
 import {PrivateMemoryGallery} from './PrivateMemoryGallery';
 import {SLPPractice} from './SLPPractice';
 import {HerLifeCompanion} from './HerLifeCompanion';
-import {MusicStudio,CinemaStudio,MusicDock} from './MusicCinema';
+import {MusicStudio,CinemaStudio,MusicDock,useMusic} from './MusicCinema';
 import { ForegroundReminderAlerts } from './ForegroundReminderAlerts';
 import { calculateNetCashFlow, parseTransactionAmount } from './lib/finance';
 
@@ -62,6 +62,7 @@ function greeting() { const h = new Date().getHours(); return h < 12 ? 'Good mor
 function readRef() { return dailyReadingReference(); }
 
 export default function App() {
+  const music=useMusic();
   const [session, setSession] = useState<Session|null>(null);
   const [loading, setLoading] = useState(true);
   const [accessStatus, setAccessStatus] = useState<'checking'|'approved'|'error'>('checking');
@@ -103,7 +104,7 @@ export default function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, next) => {
       setSession(next);
       if (event === 'PASSWORD_RECOVERY') setRecoveringPassword(true);
-      if (event === 'SIGNED_OUT') {setRecoveringPassword(false);setFilmDismissed(false);setFilmSeen(null);setFilmOpen(false);}
+      if (event === 'SIGNED_OUT') {music.stop();setRecoveringPassword(false);setFilmDismissed(false);setFilmSeen(null);setFilmOpen(false);}
     });
     return () => subscription.unsubscribe();
   }, []);
