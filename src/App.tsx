@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import { Images, Gamepad2, Store, Calculator, ShoppingBag, Shirt, StickyNote, BookOpen, CalendarDays, Check, ChevronLeft, ChevronRight, Heart, LayoutDashboard, ListChecks, LogOut, Menu, Moon, NotebookPen, Plus, Settings, Sun, Target, Trash2, Wallet, X, BrainCircuit, Timer, PiggyBank, Palette, GraduationCap, ImagePlus } from 'lucide-react';
+import { Images, Gamepad2, Store, Calculator, ShoppingBag, Shirt, StickyNote, BookOpen, CalendarDays, Check, ChevronLeft, ChevronRight, Heart, LayoutDashboard, ListChecks, LogOut, Menu, Moon, NotebookPen, Plus, Settings, Sun, Target, Trash2, Wallet, X, BrainCircuit, Timer, PiggyBank, Palette, GraduationCap, ImagePlus, Sparkles } from 'lucide-react';
 import { BRAND, dailyReadingReference } from './brand';
 import { isConfigured, supabase } from './lib/supabase';
 import { calendarMonthGrid, localISODate } from './lib/dates';
@@ -16,10 +16,11 @@ import { HerLifeGames } from './HerLifeGames';
 import {BibleMemory,FinanceTracker,FocusTimer,AppearanceStudio,MemoryCoverPicker} from './LifeAdditions';
 import {PrivateMemoryGallery} from './PrivateMemoryGallery';
 import {SLPPractice} from './SLPPractice';
+import {HerLifeCompanion} from './HerLifeCompanion';
 import { ForegroundReminderAlerts } from './ForegroundReminderAlerts';
 import { calculateNetCashFlow, parseTransactionAmount } from './lib/finance';
 
-type Section = 'home' | 'faith' | 'planner' | 'journal' | 'notes' | 'wardrobe' | 'habits' | 'goals' | 'finances' | 'boutique' | 'shopping' | 'calculator' | 'events' | 'games' | 'bible-memory' | 'focus' | 'savings' | 'themes' | 'memory-cover' | 'private-memories' | 'slp' | 'settings';
+type Section = 'home' | 'faith' | 'planner' | 'journal' | 'notes' | 'wardrobe' | 'habits' | 'goals' | 'finances' | 'boutique' | 'shopping' | 'calculator' | 'events' | 'games' | 'bible-memory' | 'focus' | 'savings' | 'themes' | 'memory-cover' | 'private-memories' | 'slp' | 'companion' | 'settings';
 type HabitCheckin = { habit_id: string; completed_on: string };
 type Entry = { id: string; kind: 'task'|'journal'|'habit'|'goal'|'transaction'|'prayer'|'quiet_time'; title: string; content: string; value: number; done: boolean; created_at: string; due_date: string|null };
 const nav = [
@@ -43,6 +44,7 @@ const nav = [
   { id: 'memory-cover', label: 'Memory film cover', icon: Images },
   { id: 'private-memories', label: 'Upload memories', icon: ImagePlus },
   { id: 'slp', label: 'SLP clinical practice', icon: GraduationCap },
+  { id: 'companion', label: 'AI companion & debate', icon: Sparkles },
   { id: 'settings', label: 'Settings', icon: Settings },
 ] as const;
 const formatDate = (date: Date) => new Intl.DateTimeFormat('en-ZA', { weekday:'long', day:'numeric', month:'long', year:'numeric' }).format(date);
@@ -294,6 +296,7 @@ export default function App() {
       {section==='memory-cover'&&<MemoryCoverPicker session={session} onChange={setFilmCover}/>}
       {section==='private-memories'&&<PrivateMemoryGallery session={session}/>}
       {section==='slp'&&<SLPPractice session={session}/>}
+      {section==='companion'&&<HerLifeCompanion session={session}/>}
       {(section==='notes'||section==='wardrobe'||section==='goals')&&<LifeStudio session={session} kind={section==='notes'?'note':section==='wardrobe'?'wardrobe':'goal'}/>}
       {section==='planner'&&<><div className="calendar-event-shortcut"><span>Need a time-specific appointment or reminder?</span><button className="primary" onClick={()=>setSection('events')}><CalendarDays size={17}/> New timed event</button></div><Heading kicker="PLAN WITH PURPOSE" title="My planner" subtitle="Give your priorities a place in your day."/><section className="card month-calendar"><div className="card-heading"><h2>{new Intl.DateTimeFormat('en-ZA',{month:'long',year:'numeric'}).format(viewMonth)}</h2><div className="month-controls"><button className="icon-btn" aria-label="Previous month" onClick={()=>setViewMonth(v=>new Date(v.getFullYear(),v.getMonth()-1,1))}><ChevronLeft size={19}/></button><button className="secondary" onClick={()=>{setViewMonth(new Date(new Date().getFullYear(),new Date().getMonth(),1));setSelectedDate(today());}}>Today</button><button className="icon-btn" aria-label="Next month" onClick={()=>setViewMonth(v=>new Date(v.getFullYear(),v.getMonth()+1,1))}><ChevronRight size={19}/></button></div></div><div className="calendar-grid">{['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(day=><div className="calendar-label" key={day}>{day}</div>)}{calendarDays.map(day=><button key={day.iso} className={'calendar-day '+(!day.currentMonth?'outside ':'')+(selectedDate===day.iso?'selected ':'')+(today()===day.iso?'is-today':'')} aria-label={day.iso} aria-pressed={selectedDate===day.iso} onClick={()=>{setSelectedDate(day.iso);if(!day.currentMonth){const d=new Date(day.iso+'T12:00:00');setViewMonth(new Date(d.getFullYear(),d.getMonth(),1));}}}><span>{day.day}</span>{groups.tasks.some(task=>task.due_date===day.iso)&&<i className="event-dot" aria-label="Tasks scheduled"/>}</button>)}</div><p className="tiny muted">Choose a date to view or add tasks. A dot indicates scheduled tasks.</p></section><section className="card section-card"><div className="card-heading"><div><p className="section-kicker">SELECTED DAY</p><h2>{formatDate(new Date(selectedDate+'T12:00:00'))}</h2></div><button className="primary" onClick={()=>open('task')}><Plus size={17}/> New task</button></div>{renderEntries(groups.tasks.filter(task=>task.due_date===selectedDate),'Nothing scheduled for this day. Add an important task when you are ready.',true)}</section><section className="card section-card"><h2>Unscheduled tasks</h2>{renderEntries(groups.tasks.filter(task=>!task.due_date),'All tasks currently have a scheduled date.',true)}</section></>}
       {section==='journal'&&<><LifeStudio session={session} kind="journal"/><section className="journal-legacy"><h2>Earlier reflections</h2><p className="muted">Your previous journal entries are preserved here.</p>{renderEntries(groups.journal,'Earlier entries will appear here.',false)}</section></>}

@@ -15,6 +15,7 @@ import './writing-workspace.css';
 import './memory-cinema.css';
 import './life-additions.css';
 import './slp-private-media.css';
+import './companion.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
