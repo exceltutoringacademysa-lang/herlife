@@ -14,6 +14,7 @@ import './writing-paper.css';
 import './writing-workspace.css';
 import './memory-cinema.css';
 import './life-additions.css';
+import './slp-private-media.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
