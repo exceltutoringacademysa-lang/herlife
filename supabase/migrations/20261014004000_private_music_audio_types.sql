@@ -1,0 +1,1 @@
+update storage.buckets set allowed_mime_types=ARRAY['image/jpeg','image/png','image/webp','image/heic','image/heif','video/mp4','video/quicktime','video/webm','application/pdf','audio/mp4','audio/webm','audio/ogg','audio/mpeg','audio/wav','audio/x-wav','audio/x-m4a'] where id='herlife-private-memories';
