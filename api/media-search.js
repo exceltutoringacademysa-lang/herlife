@@ -6,14 +6,14 @@ export default async function handler(req,res){
  if(!q)return res.status(400).json({error:'Enter a search term.'});
  const base=process.env.SUPABASE_URL||process.env.VITE_SUPABASE_URL;
  const publicKey=process.env.SUPABASE_ANON_KEY||process.env.VITE_SUPABASE_PUBLISHABLE_KEY||process.env.VITE_SUPABASE_ANON_KEY;
- const bearer=(req.headers.authorization||'').match(/^Bearer\\s+(.+)$/i)?.[1];
+ const bearer=(req.headers.authorization||'').match(/^Bearer\s+(.+)$/i)?.[1];
  if(!base||!publicKey||!bearer)return res.status(401).json({error:'Sign in to search videos.'});
  try{
-  const userRes=await fetch(base.replace(/\\/$/,'')+'/auth/v1/user',{headers:{apikey:publicKey,Authorization:'Bearer '+bearer}});
+  const userRes=await fetch(base.replace(/\/$/,'')+'/auth/v1/user',{headers:{apikey:publicKey,Authorization:'Bearer '+bearer}});
   if(!userRes.ok)return res.status(401).json({error:'Please sign in again.'});
   const user=await userRes.json();
   if(!user.id)return res.status(401).json({error:'Invalid account.'});
-  const approved=await fetch(base.replace(/\\/$/,'')+'/rest/v1/app_members?select=user_id&user_id=eq.'+encodeURIComponent(user.id)+'&limit=1',{headers:{apikey:publicKey,Authorization:'Bearer '+bearer}});
+  const approved=await fetch(base.replace(/\/$/,'')+'/rest/v1/app_members?select=user_id&user_id=eq.'+encodeURIComponent(user.id)+'&limit=1',{headers:{apikey:publicKey,Authorization:'Bearer '+bearer}});
   if(!approved.ok||!(await approved.json()).length)return res.status(403).json({error:'Access limited to approved HerLife members.'});
  }catch{return res.status(502).json({error:'Unable to verify account access.'});}
  const key=process.env.HERLIFE_YOUTUBE_DATA_API_KEY;
