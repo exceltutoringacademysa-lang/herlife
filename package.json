@@ -32,7 +32,10 @@
     "@tiptap/extension-table-row": "^2.12.0",
     "@tiptap/extension-table-header": "^2.12.0",
     "@tiptap/extension-table-cell": "^2.12.0",
-    "@tiptap/extension-link": "^2.12.0"
+    "@tiptap/extension-link": "^2.12.0",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
+    "mathjs": "^14.8.1"
   },
   "devDependencies": {
     "@types/react": "^18.3.11",
