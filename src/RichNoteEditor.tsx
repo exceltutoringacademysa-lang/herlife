@@ -3,10 +3,23 @@ import {supabase} from './lib/supabase';
 import {InkNode,PrivatePhotoNode,PrivatePdfNode,PrivateAudioNode} from './DocumentNodes';
 import {useEditor,EditorContent} from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
+import {Extension} from '@tiptap/core';
+import Highlight from '@tiptap/extension-highlight';
+import Color from '@tiptap/extension-color';
+import TextStyle from '@tiptap/extension-text-style';
+import TextAlign from '@tiptap/extension-text-align';
+import TaskList from '@tiptap/extension-task-list';
+import TaskItem from '@tiptap/extension-task-item';
+import Table from '@tiptap/extension-table';
+import TableRow from '@tiptap/extension-table-row';
+import TableHeader from '@tiptap/extension-table-header';
+import TableCell from '@tiptap/extension-table-cell';
+import LinkExtension from '@tiptap/extension-link';
 import Underline from '@tiptap/extension-underline';
 import Image from '@tiptap/extension-image';
-import {Bold,Italic,Underline as UnderlineIcon,List,ListOrdered,Heading2,Quote,Undo2,Redo2,CheckSquare,PenLine,ImagePlus,FileUp,Mic,MicOff,FileAudio} from 'lucide-react';
+import {Bold,Italic,Underline as UnderlineIcon,List,ListOrdered,Heading2,Quote,Undo2,Redo2,CheckSquare,PenLine,ImagePlus,FileUp,Mic,MicOff,FileAudio,Table2,AlignLeft,AlignCenter,AlignRight,Link2,Plus,Minus,Strikethrough} from 'lucide-react';
 
+const FontSize=Extension.create({name:'fontSize',addGlobalAttributes(){return[{types:['textStyle'],attributes:{fontSize:{default:null,parseHTML:(el:HTMLElement)=>el.style.fontSize||null,renderHTML:(attributes:Record<string,unknown>)=>attributes.fontSize?{style:'font-size:'+String(attributes.fontSize)}:{}}}}];}});
 type Props={html:string;plainText:string;onChange:(html:string,text:string)=>void;fontSize:number;noteId:string;ownerId:string;readOnly?:boolean};
 function safeStart(html:string,text:string){if(html&&html.length<=300000)return html;return '<p>'+text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'</p><p>')+'</p>';}
 export function RichNoteEditor({html,plainText,onChange,fontSize,noteId,ownerId,readOnly=false}:Props){
@@ -14,7 +27,7 @@ export function RichNoteEditor({html,plainText,onChange,fontSize,noteId,ownerId,
  const recorder=useRef<MediaRecorder|null>(null),stream=useRef<MediaStream|null>(null),chunks=useRef<Blob[]>([]),cancelled=useRef(false);
  const editor=useEditor({
   editable:!readOnly,
-  extensions:[StarterKit.configure({heading:{levels:[1,2,3]}}),Underline,Image.configure({inline:false,allowBase64:false}),InkNode,PrivatePhotoNode,PrivatePdfNode,PrivateAudioNode],
+  extensions:[StarterKit.configure({heading:{levels:[1,2,3]}}),Underline,Image.configure({inline:false,allowBase64:false}),InkNode,PrivatePhotoNode,PrivatePdfNode,PrivateAudioNode,Highlight.configure({multicolor:true}),TextStyle,Color,FontSize,TextAlign.configure({types:['paragraph','heading']}),TaskList,TaskItem.configure({nested:true}),Table.configure({resizable:false}),TableRow,TableHeader,TableCell,LinkExtension.configure({openOnClick:false,autolink:true,HTMLAttributes:{target:'_blank',rel:'noopener noreferrer'}})],
   content:safeStart(html,plainText),
   editorProps:{attributes:{class:'herlife-tiptap-text',role:'textbox','aria-label':'Note contents','aria-multiline':'true'},handlePaste(view,event){const text=event.clipboardData?.getData('text/plain');if(!text)return false;event.preventDefault();view.dispatch(view.state.tr.insertText(text));return true;}},
   onUpdate:({editor:e})=>onChange(e.getHTML(),e.getText({blockSeparator:'\n'})),
@@ -38,6 +51,7 @@ export function RichNoteEditor({html,plainText,onChange,fontSize,noteId,ownerId,
   r.start();setRecording(true);setError('');
  }catch{setError('Microphone access was denied.');}}
  if(!editor)return <p className="muted">Opening editor…</p>;
+ const addLink=()=>{const raw=window.prompt('Paste a secure web link (https://)');if(!raw)return;try{const value=new URL(raw);if(!['http:','https:','mailto:'].includes(value.protocol))throw Error('Protocol');editor.chain().focus().extendMarkRange('link').setLink({href:value.toString()}).run();}catch{setError('Please use an https:// or http:// link.');}};
  const action=(label:string,active:boolean,fn:()=>void,icon:React.ReactNode)=><button type="button" title={label} aria-label={label} aria-pressed={active} onClick={fn}>{icon}</button>;
  return <div className="herlife-rich-document"><EditorContent editor={editor} style={{fontSize}}/>{!readOnly&&<div className="herlife-rich-toolbar" aria-label="Text formatting tools">
  {action('Bold',editor.isActive('bold'),()=>editor.chain().focus().toggleBold().run(),<Bold size={19}/>)}
@@ -46,7 +60,17 @@ export function RichNoteEditor({html,plainText,onChange,fontSize,noteId,ownerId,
  {action('Heading',editor.isActive('heading',{level:2}),()=>editor.chain().focus().toggleHeading({level:2}).run(),<Heading2 size={19}/>)}
  {action('Bulleted list',editor.isActive('bulletList'),()=>editor.chain().focus().toggleBulletList().run(),<List size={19}/>)}
  {action('Numbered list',editor.isActive('orderedList'),()=>editor.chain().focus().toggleOrderedList().run(),<ListOrdered size={19}/>)}
- {action('Checklist',editor.isActive('bulletList'),()=>editor.chain().focus().toggleBulletList().run(),<CheckSquare size={19}/>)}
+ {action('Checklist',editor.isActive('taskList'),()=>editor.chain().focus().toggleTaskList().run(),<CheckSquare size={19}/>)}}
+ {action('Strikethrough',editor.isActive('strike'),()=>editor.chain().focus().toggleStrike().run(),<Strikethrough size={19}/>)}
+ {action('Text highlight',editor.isActive('highlight'),()=>editor.chain().focus().toggleHighlight({color:'#ffeda6'}).run(),<Highlighter size={19}/>)}
+ <label className="rich-format-color" title="Text colour"><input aria-label="Text colour" type="color" onChange={e=>editor.chain().focus().setColor(e.target.value).run()} defaultValue="#403544"/></label>
+ <select className="rich-format-size" aria-label="Selected text size" defaultValue="17" onChange={e=>editor.chain().focus().setMark('textStyle',{fontSize:e.target.value+'px'}).run()}>{[12,14,16,17,18,20,24,28,32].map(n=><option key={n} value={n}>{n} pt</option>)}</select>
+ {action('Align left',editor.isActive({textAlign:'left'}),()=>editor.chain().focus().setTextAlign('left').run(),<AlignLeft size={19}/>)}
+ {action('Centre text',editor.isActive({textAlign:'center'}),()=>editor.chain().focus().setTextAlign('center').run(),<AlignCenter size={19}/>)}
+ {action('Align right',editor.isActive({textAlign:'right'}),()=>editor.chain().focus().setTextAlign('right').run(),<AlignRight size={19}/>)}
+ {action('Insert link',editor.isActive('link'),addLink,<Link2 size={19}/>)}
+ {action('Insert table',false,()=>editor.chain().focus().insertTable({rows:3,cols:3,withHeaderRow:true}).run(),<Table2 size={19}/>)}
+ {editor.isActive('table')&&<>{action('Add table row',false,()=>editor.chain().focus().addRowAfter().run(),<Plus size={18}/>)}{action('Delete table row',false,()=>editor.chain().focus().deleteRow().run(),<Minus size={18}/>)}</>}
  {action('Block quote',editor.isActive('blockquote'),()=>editor.chain().focus().toggleBlockquote().run(),<Quote size={19}/>)}
  {action('Insert handwriting page',false,()=>editor.chain().focus().insertContent([{type:'handwriting',attrs:{pages:[{id:crypto.randomUUID(),strokes:[]}]}},{type:'paragraph'}]).run(),<PenLine size={19}/>)}
  <label className="rich-file-insert" title="Insert private image"><ImagePlus size={19}/><input type="file" aria-label="Insert images" accept="image/jpeg,image/png,image/webp" multiple onChange={e=>void insertFiles(e)}/></label>
