@@ -18,7 +18,7 @@ export function NotesStudio({session,kind}:{session:Session;kind:Kind}){
  const [extraFolders,setExtraFolders]=useState<string[]>(()=>{try{return JSON.parse(localStorage.getItem('herlife-folders-'+session.user.id+'-'+kind)||'[]') as string[];}catch{return [];}});
  const [menu,setMenu]=useState(false),[editingMenu,setEditingMenu]=useState(false),[sort,setSort]=useState<'recent'|'title'|'oldest'>('recent'),[message,setMessage]=useState(''),[saving,setSaving]=useState(false);
  const [sharing,setSharing]=useState(false),[permissions,setPermissions]=useState<Record<string,'view'|'edit'>>({}),[conflict,setConflict]=useState(false);
- const revision=useRef<{id:string;at:string}|null>(null);
+ const revision=useRef<{id:string;at:string}|null>(null),inFlight=useRef(0);
  const [attachments,setAttachments]=useState<Record<string,string>>({}),[uploading,setUploading]=useState(false),[preview,setPreview]=useState(false),[font,setFont]=useState(17);
  const [undo,setUndo]=useState<string[]>([]),[redo,setRedo]=useState<string[]>([]);
  const textRef=useRef<HTMLTextAreaElement>(null),draftRef=useRef<Item|null>(null),pending=useRef(0),writeChain=useRef<Promise<unknown>>(Promise.resolve());
@@ -33,11 +33,13 @@ export function NotesStudio({session,kind}:{session:Session;kind:Kind}){
   const token=++pending.current;setSaving(true);
   const snapshot={...item,title:item.title.trim()||'Untitled',updated_at:new Date().toISOString()};
   const send=async()=>{
+   inFlight.current++;
    let result:{data:unknown;error:{message:string}|null};
    const prior=revision.current?.id===item.id?revision.current:null;
    if(prior){result=await supabase!.rpc('save_collaborative_note',{p_note:item.id,p_title:snapshot.title,p_body:item.body,p_details:item.details,p_expected_at:prior.at});}
    else if(item.user_id===session.user.id){result=await supabase!.from('life_items').upsert(snapshot,{onConflict:'id'}).select('*').single();}
    else{setMessage('You cannot create a note for another account.');setSaving(false);return false;}
+   inFlight.current=Math.max(0,inFlight.current-1);
    const {data,error}=result;
    if(error){if(token===pending.current){setSaving(false);setMessage(error.message);if(error.message.includes('EDIT_CONFLICT'))setConflict(true);}return false;}
    const saved=data as Item;revision.current={id:item.id,at:saved.updated_at};
@@ -51,6 +53,13 @@ export function NotesStudio({session,kind}:{session:Session;kind:Kind}){
  useEffect(()=>{let live=true;const d=draft;const files=d?paths(d.details):[];if(!files.length){setAttachments({});return;}
   void Promise.all(files.map(async p=>{const {data}=await supabase!.storage.from('herlife-private-memories').createSignedUrl(p,3600);return [p,data?.signedUrl||''] as const;})).then(x=>{if(live)setAttachments(Object.fromEntries(x));});
   return()=>{live=false;};},[draft?.id,JSON.stringify(draft?.details.attachments)]);
+ useEffect(()=>{if(!draft?.id||!supabase)return;const noteId=draft.id;const client=supabase;
+  const channel=client.channel('notes-watch-'+noteId).on('postgres_changes',{event:'UPDATE',schema:'public',table:'life_items',filter:'id=eq.'+noteId},payload=>{
+   const row=payload.new as Item;if(inFlight.current||row.id!==noteId)return;
+   if(revision.current?.id===noteId&&revision.current.at!==row.updated_at){setConflict(true);setMessage('This document was changed by another editor. Reload or keep a local copy to protect your work.');}
+  }).subscribe();
+  return()=>{void client.removeChannel(channel);};
+ },[draft?.id]);
  function patch(edit:(d:Item)=>Item){setDraft(old=>old?edit(old):old);}
  function changeBody(v:string){if(draft){setUndo(a=>[...a.slice(-34),draft.body]);setRedo([]);}patch(d=>({...d,body:v,details:{...d.details,richHtml:''}}));}
  async function back(){if(draft&&!conflict&&permissions[draft.id]!=='view'){const current=draft;setDraft(null);await persist(current);}else setDraft(null);setPreview(false);setEditingMenu(false);}
