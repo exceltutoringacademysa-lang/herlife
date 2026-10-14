@@ -36,7 +36,7 @@ export function NotesStudio({session,kind}:{session:Session;kind:Kind}){
   void Promise.all(files.map(async p=>{const {data}=await supabase!.storage.from('herlife-private-memories').createSignedUrl(p,3600);return [p,data?.signedUrl||''] as const;})).then(x=>{if(live)setAttachments(Object.fromEntries(x));});
   return()=>{live=false;};},[draft?.id,JSON.stringify(draft?.details.attachments)]);
  function patch(edit:(d:Item)=>Item){setDraft(old=>old?edit(old):old);}
- function changeBody(v:string){if(draft){setUndo(a=>[...a.slice(-34),draft.body]);setRedo([]);}patch(d=>({...d,body:v}));}
+ function changeBody(v:string){if(draft){setUndo(a=>[...a.slice(-34),draft.body]);setRedo([]);}patch(d=>({...d,body:v,details:{...d.details,richHtml:''}}));}
  async function back(){if(draft){const current=draft;setDraft(null);await persist(current);}setPreview(false);setEditingMenu(false);}
  function edit(item:Item){setDraft({...item,details:{...item.details}});setUndo([]);setRedo([]);setPreview(false);setDrawer(false);setMessage('');}
  function create(){edit(fresh(session.user.id,kind));}
