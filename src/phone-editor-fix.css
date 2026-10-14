@@ -1,0 +1,28 @@
+/* Compact dedicated editor for phones: writing first, controls second. */
+@media(max-width:850px){
+ .life-writing-open .studio-heading{display:none!important}
+ .life-writing-open .studio-layout{border:0!important;border-radius:0!important;min-height:0!important;background:transparent!important}
+ .life-writing-open .studio-paper{padding:0!important;overflow:visible!important}
+ .life-writing-open .studio-toolbar{margin:0 0 12px!important;padding:8px 0 12px!important;gap:8px!important;border-bottom:1px solid var(--line)}
+ .life-writing-open .studio-toolbar-right{gap:5px!important}
+ .life-writing-open .studio-toolbar button{min-height:40px!important;border-radius:11px!important}
+ .life-writing-open .studio-toolbar .studio-back{font-size:13px;max-width:none}
+ .life-writing-open .studio-toolbar-right .secondary{min-width:42px}
+ .life-writing-open .studio-title{font-size:clamp(23px,5.5vw,32px)!important;font-weight:450!important;margin:7px 0 10px!important;padding:8px 0 12px!important;line-height:1.3!important}
+ .life-writing-open .writing-actions{margin:2px 0 8px!important;display:flex!important;gap:6px!important;align-items:center!important}
+ .life-writing-open .writing-actions label{min-width:110px!important;max-width:190px!important;font-size:11px!important}
+ .life-writing-open .writing-actions input{min-height:38px!important;padding:7px 10px!important}
+ .life-writing-open .writing-actions .secondary{min-height:38px!important;padding:8px 11px!important;font-size:12px!important}
+ .life-writing-open .note-media-toolbar{margin:5px 0 8px!important;gap:7px}
+ .life-writing-open .note-media-toolbar .note-add-photo{min-height:38px!important;padding:8px 11px!important;font-size:12px}
+ .life-writing-open .note-media-toolbar .tiny{font-size:10px}
+ .life-writing-open .studio-body.note-page{min-height:55dvh!important;font-size:17px!important;line-height:1.7!important;padding:10px 0 40px!important;border:0!important;background:transparent!important}
+ .life-writing-open .note-format{display:none}
+ .life-writing-open .studio-status{font-size:11px}
+}
+@media(max-width:380px){
+ .life-writing-open .studio-toolbar-right .secondary{font-size:0!important;width:40px;padding:9px!important;gap:0}
+ .life-writing-open .studio-toolbar-right .secondary svg{width:18px;height:18px}
+ .life-writing-open .studio-toolbar .primary{padding:9px 11px!important}
+ .life-writing-open .studio-toolbar .studio-back{padding:8px!important}
+}
