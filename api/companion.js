@@ -34,7 +34,7 @@ export default async function handler(req,res){
  const body={systemInstruction:{parts:[{text:'You are HerLife Companion. Warm, intelligent, accurate, tactful and concise. Optional assistant for Anelisa, a private HerLife user. Never imply you can view photos, videos, journal, finances or calendar; only the text explicitly sent in this request is visible. No actions or privileged access. Never ask for real patient-identifiable details. If uncertain, say so. '+styles[mode]}]},contents:safe.map(m=>({role:m.role==='user'?'user':'model',parts:[{text:m.text}]})),generationConfig:{temperature:mode==='debate'?0.78:0.45,maxOutputTokens:700}};
  const controller=new AbortController(),alarm=setTimeout(()=>controller.abort(),18000);
  try{
-  const model=process.env.HERLIFE_GEMINI_MODEL||'gemini-2.5-flash';
+  const model=process.env.HERLIFE_GEMINI_MODEL||'gemini-3.5-flash-lite';
   if(!/^[a-zA-Z0-9.-]{3,60}$/.test(model))return json(res,503,{error:'Invalid model configuration.'});
   const response=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent',{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':key},body:JSON.stringify(body),signal:controller.signal});
   const data=await response.json().catch(()=>({}));
