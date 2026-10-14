@@ -2,6 +2,7 @@ import {useEffect,useMemo,useState} from 'react';
 import type {Session} from '@supabase/supabase-js';
 import {GraduationCap,BookOpen,RotateCcw,CheckCircle2,ArrowRight} from 'lucide-react';
 import {slpBank} from './slpBank';
+import {AIReview} from './AIReview';
 type History={completed:number[];correct:number[]};
 const empty:History={completed:[],correct:[]};
 function load(key:string):History{try{const x=JSON.parse(localStorage.getItem(key)||'null') as History|null;return x&&Array.isArray(x.completed)&&Array.isArray(x.correct)?x:empty;}catch{return empty;}}
@@ -22,6 +23,7 @@ export function SLPPractice({session}:{session:Session}){
  <div className="slp-filters"><div className="special-tabs">{([['all','All 100'],['case','Clinical cases'],['question','Knowledge questions']] as const).map(([val,label])=><button className={type===val?'active':''} key={val} onClick={()=>filterType(val)}>{label}</button>)}</div><label>Topic <select value={topic} onChange={e=>filterTopic(e.target.value)}>{topics.map(t=><option key={t}>{t}</option>)}</select></label></div>
  <div className="slp-question"><div className="slp-meta"><span>{item.type==='case'?'CASE STUDY':'KNOWLEDGE CHECK'}</span><span>{item.topic}</span><span>{at%filtered.length+1} / {filtered.length}</span></div><h2>{item.stem}</h2><div className="slp-choices">{item.options.map((text,i)=><button key={i} disabled={chosen!==null} className={chosen!==null?(i===item.correct?'correct':i===chosen?'incorrect':''):''} onClick={()=>answer(i)}><span>{String.fromCharCode(65+i)}</span>{text}{chosen!==null&&i===item.correct?<CheckCircle2 size={18}/>:null}</button>)}</div>
  <label className="slp-reason">Your clinical reasoning (optional)<textarea rows={4} placeholder="What assessment information would you need? Which alternatives would you rule out?" value={reason} onChange={e=>setReason(e.target.value)} /></label>
+ <AIReview key={item.id} session={session} mode="slp" question={item.stem} answer={reason}/>
  {show&&<div className="slp-explanation" role="status"><strong>{chosen===item.correct?'Correct approach.':'Consider the alternative.'}</strong><p>{item.explanation}</p><p className="tiny muted">Learning scenario only. Always follow lecturer guidance, supervised clinical practice, applicable South African professional rules and assessment protocols.</p></div>}
  <div className="slp-actions"><button className="secondary" onClick={()=>setShow(true)}><BookOpen size={16}/> Read explanation</button><button className="primary" onClick={next}>Next question <ArrowRight size={16}/></button></div></div>
  <p className="tiny muted">These are original practice vignettes, not UCT examination questions or clinical guidance for a real patient. Progress is currently stored on this device and can be reset here.</p>
