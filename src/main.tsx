@@ -41,3 +41,5 @@ import './slp-study-responsive.css';
 import './phone-editor-fix.css';
 
 import './notes-studio.css';
+
+import './rich-note-editor.css';
