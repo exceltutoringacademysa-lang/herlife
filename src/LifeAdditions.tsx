@@ -78,7 +78,7 @@ export function AppearanceStudio({session}:{session:Session}){
 
 export function MemoryCoverPicker({session,onChange}:{session:Session;onChange:(file:string)=>void}){
  const key='herlife-memory-cover-'+session.user.id;
- const available=memoryStory.map(x=>x.file).filter(x=>x.endsWith('.jpg'));
+ const available:string[]=memoryStory.map(x=>x.file).filter(x=>x.endsWith('.jpg'));
  const [selected,setSelected]=useState(()=>{const v=localStorage.getItem(key);return v&&available.includes(v)?v:available[0];});
  function select(file:string){localStorage.setItem(key,file);setSelected(file);onChange(file);}
  return <section className="special-page"><header className="special-heading"><Palette/><div><p className="eyebrow">YOUR MEMORY FILM</p><h1>Choose a cover</h1><p>Pick a favourite photograph from the existing memories for the opening and closing film screens.</p></div></header><div className="memory-cover-picker">{available.map(file=><button key={file} aria-label={'Select memory image '+file} aria-pressed={selected===file} onClick={()=>select(file)} className={file===selected?'active':''}><img loading="lazy" src={'/memories/'+file} alt="A memory album photograph"/>{file===selected&&<Check size={19}/>}</button>)}</div><p className="tiny muted">The chosen image is saved on this device. This doesn't replace or delete the original memories, and it does not upload new photos.</p></section>;
