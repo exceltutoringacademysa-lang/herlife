@@ -13,7 +13,7 @@ function read(key:string):Tracking{try{const parsed=JSON.parse(localStorage.getI
 export function BibleMemory({session}:{session:Session}){
  const storage='herlife-memory-v1-'+session.user.id;
  const [data,setData]=useState<Tracking>(()=>read(storage));
- const [mode,setMode]=useState<BibleMode>('flash'),[index,setIndex]=useState(0),[revealed,setRevealed]=useState(false),[input,setInput]=useState(''),[feedback,setFeedback]=useState('');
+ const [mode,setMode]=useState<BibleMode>('flash'),[revealed,setRevealed]=useState(false),[input,setInput]=useState(''),[feedback,setFeedback]=useState('');
  const [recording,setRecording]=useState(false),[voiceUrl,setVoiceUrl]=useState('');
  const stream=useRef<MediaStream|null>(null),recorder=useRef<MediaRecorder|null>(null),chunks=useRef<Blob[]>([]);
  const [passageQuery,setPassageQuery]=useState('Psalm 23:1');
