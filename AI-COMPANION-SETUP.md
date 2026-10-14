@@ -3,7 +3,7 @@
 The companion has five opt-in modes: everyday support, debate practice, SLP study, Bible study, and writing coaching. The web UI is under **More → AI companion & debate**.
 
 ## Vercel server-only configuration
-Add `HERLIFE_GEMINI_API_KEY` as a server-side environment variable for Production/Preview, then redeploy. Optional: `HERLIFE_GEMINI_MODEL` (default `gemini-2.5-flash`). **Never prefix the key with `VITE_` or put it in source control**.
+Add `HERLIFE_GEMINI_API_KEY` as a server-side environment variable for Production/Preview, then redeploy. Optional: `HERLIFE_GEMINI_MODEL` (default `gemini-3.5-flash-lite`). **Never prefix the key with `VITE_` or put it in source control**.
 
 Set `SUPABASE_URL` and `SUPABASE_ANON_KEY` (browser-publishable anon key; *not* service-role key) as server-side variables if the equivalent `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` / `VITE_SUPABASE_PUBLISHABLE_KEY` are not accessible to Vercel Functions.
 
