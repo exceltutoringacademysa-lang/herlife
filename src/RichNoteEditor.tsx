@@ -17,7 +17,7 @@ import TableCell from '@tiptap/extension-table-cell';
 import LinkExtension from '@tiptap/extension-link';
 import Underline from '@tiptap/extension-underline';
 import Image from '@tiptap/extension-image';
-import {Bold,Italic,Underline as UnderlineIcon,List,ListOrdered,Heading2,Quote,Undo2,Redo2,CheckSquare,PenLine,ImagePlus,FileUp,Mic,MicOff,FileAudio,Table2,AlignLeft,AlignCenter,AlignRight,Link2,Plus,Minus,Strikethrough} from 'lucide-react';
+import {Bold,Italic,Underline as UnderlineIcon,List,ListOrdered,Heading2,Quote,Undo2,Redo2,CheckSquare,PenLine,ImagePlus,FileUp,Mic,MicOff,FileAudio,Table2,AlignLeft,AlignCenter,AlignRight,Link2,Plus,Minus,Strikethrough,Highlighter} from 'lucide-react';
 
 const FontSize=Extension.create({name:'fontSize',addGlobalAttributes(){return[{types:['textStyle'],attributes:{fontSize:{default:null,parseHTML:(el:HTMLElement)=>el.style.fontSize||null,renderHTML:(attributes:Record<string,unknown>)=>attributes.fontSize?{style:'font-size:'+String(attributes.fontSize)}:{}}}}];}});
 type Props={html:string;plainText:string;onChange:(html:string,text:string)=>void;fontSize:number;noteId:string;ownerId:string;readOnly?:boolean};
