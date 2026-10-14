@@ -38,7 +38,22 @@ export default async function handler(req,res){
   if(!/^[a-zA-Z0-9.-]{3,60}$/.test(model))return json(res,503,{error:'Invalid model configuration.'});
   const response=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent',{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':key},body:JSON.stringify(body),signal:controller.signal});
   const data=await response.json().catch(()=>({}));
-  if(!response.ok){return json(res,response.status===429?429:502,{error:response.status===429?'The free AI allowance is busy. Please try again later.':'The AI provider is unavailable or not correctly configured.'});}
+  if(!response.ok){
+   // Return only the safe status code and category, never raw upstream messages.
+   const status=typeof data?.error?.status==='string'?data.error.status:'UNKNOWN';
+   const causes={
+    INVALID_ARGUMENT:'Gemini rejected the request or API key. Verify the key in Google AI Studio.',
+    FAILED_PRECONDITION:'The Gemini free tier may not be available for this account or region. Check the AI Studio billing-tier settings.',
+    PERMISSION_DENIED:'Google denied API access. Check API-key restrictions, project access and whether the key is a supported AI Studio auth key.',
+    NOT_FOUND:'The selected Gemini model is unavailable for this API key. Check the model name and availability in AI Studio.',
+    RESOURCE_EXHAUSTED:'The Gemini project has reached a quota, token or rate limit. Check available free-tier allowance.',
+    UNAVAILABLE:'Gemini is temporarily overloaded. Try again in a few minutes.',
+    INTERNAL:'Gemini encountered a temporary service error.',
+    UNAUTHENTICATED:'The API key was not accepted. Verify the Gemini API key in Vercel.',
+   };
+   const reason=causes[status]||'Gemini declined the request. Check key permissions, model access and quota.';
+   return json(res,response.status===429?429:502,{error:reason+' (Google: '+response.status+' / '+status+').',providerStatus:status,providerHttpCode:response.status});
+  }
   const answer=(data?.candidates?.[0]?.content?.parts||[]).map(p=>p.text||'').join('').trim().slice(0,6500);
   if(!answer)return json(res,502,{error:'No reply was returned. Please try again.'});
   return json(res,200,{reply:answer});
