@@ -8,9 +8,9 @@ import Underline from '@tiptap/extension-underline';
 import Image from '@tiptap/extension-image';
 import {Bold,Italic,Underline as UnderlineIcon,List,ListOrdered,Heading2,Quote,Undo2,Redo2,CheckSquare,PenLine,ImagePlus,FileUp} from 'lucide-react';
 
-type Props={html:string;plainText:string;onChange:(html:string,text:string)=>void;fontSize:number;session:Session;noteId:string;readOnly?:boolean};
+type Props={html:string;plainText:string;onChange:(html:string,text:string)=>void;fontSize:number;session:Session;noteId:string;ownerId:string;readOnly?:boolean};
 function safeStart(html:string,text:string){if(html&&html.length<=300000)return html;return '<p>'+text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'</p><p>')+'</p>';}
-export function RichNoteEditor({html,plainText,onChange,fontSize,session,noteId,readOnly=false}:Props){
+export function RichNoteEditor({html,plainText,onChange,fontSize,session,noteId,ownerId,readOnly=false}:Props){
  const [uploading,setUploading]=useState(false),[error,setError]=useState('');
  const editor=useEditor({
   editable:!readOnly,
@@ -22,7 +22,7 @@ export function RichNoteEditor({html,plainText,onChange,fontSize,session,noteId,
  useEffect(()=>{editor?.setEditable(!readOnly);},[editor,readOnly]);
  async function insertFiles(event:ChangeEvent<HTMLInputElement>){const files=Array.from(event.target.files||[]);event.target.value='';if(!editor||!supabase||readOnly)return;setUploading(true);setError('');
   for(const file of files.slice(0,8)){const pdf=file.type==='application/pdf';if((!pdf&&!['image/jpeg','image/png','image/webp'].includes(file.type))||file.size>(pdf?45:10)*1024*1024){setError('Only JPG/PNG/WebP images up to 10 MB or PDFs up to 45 MB.');continue;}
-   const ext=pdf?'pdf':file.type==='image/png'?'png':file.type==='image/webp'?'webp':'jpg';const path=session.user.id+'/notes/'+noteId+'/'+crypto.randomUUID()+'.'+ext;
+   const ext=pdf?'pdf':file.type==='image/png'?'png':file.type==='image/webp'?'webp':'jpg';const path=ownerId+'/notes/'+noteId+'/'+crypto.randomUUID()+'.'+ext;
    const {error:uploadError}=await supabase.storage.from('herlife-private-memories').upload(path,file,{contentType:file.type,upsert:false});if(uploadError){setError(uploadError.message);continue;}
    editor.chain().focus().insertContent([{type:pdf?'privatePdf':'privatePhoto',attrs:{path,fileName:file.name}},{type:'paragraph'}]).run();
   }setUploading(false);}
