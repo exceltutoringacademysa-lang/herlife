@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import { Images, Gamepad2, Store, Calculator, ShoppingBag, Shirt, StickyNote, BookOpen, CalendarDays, Check, ChevronLeft, ChevronRight, Heart, LayoutDashboard, ListChecks, LogOut, Menu, Moon, NotebookPen, Plus, Settings, Sun, Target, Trash2, Wallet, X } from 'lucide-react';
+import { Images, Gamepad2, Store, Calculator, ShoppingBag, Shirt, StickyNote, BookOpen, CalendarDays, Check, ChevronLeft, ChevronRight, Heart, LayoutDashboard, ListChecks, LogOut, Menu, Moon, NotebookPen, Plus, Settings, Sun, Target, Trash2, Wallet, X, BrainCircuit, Timer, PiggyBank, Palette } from 'lucide-react';
 import { BRAND, dailyReadingReference } from './brand';
 import { isConfigured, supabase } from './lib/supabase';
 import { calendarMonthGrid, localISODate } from './lib/dates';
@@ -13,10 +13,11 @@ import { EventCalendar, SmartCalculator, ShoppingBagStudio } from './EverydayToo
 import { Boutique } from './Boutique';
 import { HomeGlance } from './HomeGlance';
 import { HerLifeGames } from './HerLifeGames';
+import {BibleMemory,FinanceTracker,FocusTimer,AppearanceStudio,MemoryCoverPicker} from './LifeAdditions';
 import { ForegroundReminderAlerts } from './ForegroundReminderAlerts';
 import { calculateNetCashFlow, parseTransactionAmount } from './lib/finance';
 
-type Section = 'home' | 'faith' | 'planner' | 'journal' | 'notes' | 'wardrobe' | 'habits' | 'goals' | 'finances' | 'boutique' | 'shopping' | 'calculator' | 'events' | 'games' | 'settings';
+type Section = 'home' | 'faith' | 'planner' | 'journal' | 'notes' | 'wardrobe' | 'habits' | 'goals' | 'finances' | 'boutique' | 'shopping' | 'calculator' | 'events' | 'games' | 'bible-memory' | 'focus' | 'savings' | 'themes' | 'memory-cover' | 'settings';
 type HabitCheckin = { habit_id: string; completed_on: string };
 type Entry = { id: string; kind: 'task'|'journal'|'habit'|'goal'|'transaction'|'prayer'|'quiet_time'; title: string; content: string; value: number; done: boolean; created_at: string; due_date: string|null };
 const nav = [
@@ -33,6 +34,11 @@ const nav = [
   { id: 'shopping', label: 'Shopping bag', icon: ShoppingBag },
   { id: 'calculator', label: 'Calculator', icon: Calculator },
   { id: 'games', label: 'Games & debates', icon: Gamepad2 },
+  { id: 'bible-memory', label: 'Bible memory', icon: BrainCircuit },
+  { id: 'focus', label: 'Focus timer', icon: Timer },
+  { id: 'savings', label: 'Savings & investments', icon: PiggyBank },
+  { id: 'themes', label: 'Colour themes', icon: Palette },
+  { id: 'memory-cover', label: 'Memory film cover', icon: Images },
   { id: 'settings', label: 'Settings', icon: Settings },
 ] as const;
 const formatDate = (date: Date) => new Intl.DateTimeFormat('en-ZA', { weekday:'long', day:'numeric', month:'long', year:'numeric' }).format(date);
@@ -66,6 +72,7 @@ export default function App() {
   const [resetRequest, setResetRequest] = useState(false);
   const [recoveringPassword, setRecoveringPassword] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [filmCover,setFilmCover]=useState<string>('001-memory.jpg');
   const [filmSeen, setFilmSeen] = useState<boolean|null>(null);
   const [filmOpen, setFilmOpen] = useState(false);
   const [reflectionReference, setReflectionReference] = useState('');
@@ -73,6 +80,7 @@ export default function App() {
   const [filmReady, setFilmReady] = useState(false);
   const [filmDismissed, setFilmDismissed] = useState(false);
 
+  useEffect(()=>{if(!session)return;const file=localStorage.getItem('herlife-memory-cover-'+session.user.id);if(file&&/^\\d{3}-memory\\.jpg$/.test(file))setFilmCover(file);},[session?.user.id]);
   useEffect(() => { document.documentElement.dataset.theme = dark ? 'dark' : 'light'; localStorage.setItem('herlife-theme', dark ? 'dark' : 'light'); }, [dark]);
   useEffect(() => {
     if (!supabase) { setLoading(false); return; }
@@ -275,6 +283,11 @@ export default function App() {
       {section==='shopping'&&<ShoppingBagStudio session={session}/>}
       {section==='calculator'&&<SmartCalculator/>}
       {section==='games'&&<HerLifeGames/>}
+      {section==='bible-memory'&&<BibleMemory session={session}/>}
+      {section==='focus'&&<FocusTimer/>}
+      {section==='savings'&&<FinanceTracker session={session}/>}
+      {section==='themes'&&<AppearanceStudio session={session}/>}
+      {section==='memory-cover'&&<MemoryCoverPicker session={session} onChange={setFilmCover}/>}
       {(section==='notes'||section==='wardrobe'||section==='goals')&&<LifeStudio session={session} kind={section==='notes'?'note':section==='wardrobe'?'wardrobe':'goal'}/>}
       {section==='planner'&&<><div className="calendar-event-shortcut"><span>Need a time-specific appointment or reminder?</span><button className="primary" onClick={()=>setSection('events')}><CalendarDays size={17}/> New timed event</button></div><Heading kicker="PLAN WITH PURPOSE" title="My planner" subtitle="Give your priorities a place in your day."/><section className="card month-calendar"><div className="card-heading"><h2>{new Intl.DateTimeFormat('en-ZA',{month:'long',year:'numeric'}).format(viewMonth)}</h2><div className="month-controls"><button className="icon-btn" aria-label="Previous month" onClick={()=>setViewMonth(v=>new Date(v.getFullYear(),v.getMonth()-1,1))}><ChevronLeft size={19}/></button><button className="secondary" onClick={()=>{setViewMonth(new Date(new Date().getFullYear(),new Date().getMonth(),1));setSelectedDate(today());}}>Today</button><button className="icon-btn" aria-label="Next month" onClick={()=>setViewMonth(v=>new Date(v.getFullYear(),v.getMonth()+1,1))}><ChevronRight size={19}/></button></div></div><div className="calendar-grid">{['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(day=><div className="calendar-label" key={day}>{day}</div>)}{calendarDays.map(day=><button key={day.iso} className={'calendar-day '+(!day.currentMonth?'outside ':'')+(selectedDate===day.iso?'selected ':'')+(today()===day.iso?'is-today':'')} aria-label={day.iso} aria-pressed={selectedDate===day.iso} onClick={()=>{setSelectedDate(day.iso);if(!day.currentMonth){const d=new Date(day.iso+'T12:00:00');setViewMonth(new Date(d.getFullYear(),d.getMonth(),1));}}}><span>{day.day}</span>{groups.tasks.some(task=>task.due_date===day.iso)&&<i className="event-dot" aria-label="Tasks scheduled"/>}</button>)}</div><p className="tiny muted">Choose a date to view or add tasks. A dot indicates scheduled tasks.</p></section><section className="card section-card"><div className="card-heading"><div><p className="section-kicker">SELECTED DAY</p><h2>{formatDate(new Date(selectedDate+'T12:00:00'))}</h2></div><button className="primary" onClick={()=>open('task')}><Plus size={17}/> New task</button></div>{renderEntries(groups.tasks.filter(task=>task.due_date===selectedDate),'Nothing scheduled for this day. Add an important task when you are ready.',true)}</section><section className="card section-card"><h2>Unscheduled tasks</h2>{renderEntries(groups.tasks.filter(task=>!task.due_date),'All tasks currently have a scheduled date.',true)}</section></>}
       {section==='journal'&&<><LifeStudio session={session} kind="journal"/><section className="journal-legacy"><h2>Earlier reflections</h2><p className="muted">Your previous journal entries are preserved here.</p>{renderEntries(groups.journal,'Earlier entries will appear here.',false)}</section></>}
@@ -286,7 +299,7 @@ export default function App() {
     <nav className="mobile-tabbar" aria-label="Quick navigation">{[
       nav[0],nav[1],nav[2],nav[3],nav.find(item=>item.id==='settings')!
     ].map(item=><button key={item.id} type="button" className={section===item.id?'selected':''} aria-current={section===item.id?'page':undefined} onClick={()=>{setSection(item.id);setError('');setNotice('');window.scrollTo({top:0,behavior:'smooth'});}}><item.icon size={21} strokeWidth={section===item.id?2.3:1.8}/><span>{item.id==='home'?'Home':item.id==='faith'?'Bible':item.id==='planner'?'Plan':item.id==='journal'?'Journal':'More'}</span></button>)}</nav>
-    {(filmOpen||(filmSeen===false&&filmReady&&!filmDismissed))&&session&&<MemoryFilm firstVisit={filmSeen===false&&!filmManual} onClose={()=>{setFilmOpen(false);setFilmManual(false);setFilmDismissed(true);}} onFinished={finishFilm}/>}
+    {(filmOpen||(filmSeen===false&&filmReady&&!filmDismissed))&&session&&<MemoryFilm coverPhoto={filmCover} firstVisit={filmSeen===false&&!filmManual} onClose={()=>{setFilmOpen(false);setFilmManual(false);setFilmDismissed(true);}} onFinished={finishFilm}/>}
     {formOpen&&<div className="modal-layer" role="presentation" onMouseDown={ev=>{if(ev.target===ev.currentTarget)setFormOpen(null);}}><div className={"modal "+(formOpen==='journal'?'journal-writing-modal':'')} role="dialog" aria-modal="true" aria-labelledby="modal-title"><div className="card-heading"><h2 id="modal-title">{formOpen==='transaction'?'Add a transaction':formOpen==='quiet_time'?'Record quiet time':'Add '+formOpen.replace('_',' ')}</h2><button className="icon-btn" aria-label="Close" onClick={()=>setFormOpen(null)}><X size={20}/></button></div><form onSubmit={addEntry}><label>{formOpen==='journal'?'Entry title':formOpen==='transaction'?'Description':'Title'}<input required={formOpen!=='quiet_time'} maxLength={180} value={title} onChange={ev=>setTitle(ev.target.value)} placeholder="Give it a meaningful name"/></label><label>{formOpen==='transaction'?'Notes (optional)':'Notes & reflections'}<textarea rows={formOpen==='journal'?20:4} maxLength={12000} value={content} onChange={ev=>setContent(ev.target.value)} placeholder="Write something meaningful…"/></label>{formOpen==='transaction'&&<label>Category<select value={transactionCategory} onChange={ev=>setTransactionCategory(ev.target.value)}>{FINANCE_CATEGORIES.map(category=><option key={category}>{category}</option>)}</select></label>}{formOpen==='transaction'&&<label>Amount (ZAR; negative for expense)<input type="number" step="0.01" required value={value} onChange={ev=>setValue(ev.target.value)} placeholder="-125.00"/></label>}{['task','quiet_time'].includes(formOpen)&&<label>Date<input type="date" required value={date} onChange={ev=>setDate(ev.target.value)}/></label>}{error&&<p className="error" role="alert">{error}</p>}<button className="primary full" disabled={busy}>{busy?'Saving…':'Save privately'} <Check size={17}/></button></form></div></div>}
   </div>;
 }
