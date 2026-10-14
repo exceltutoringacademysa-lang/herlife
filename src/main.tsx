@@ -39,3 +39,5 @@ import './device-workspace.css';
 import './slp-study-responsive.css';
 
 import './phone-editor-fix.css';
+
+import './notes-studio.css';
