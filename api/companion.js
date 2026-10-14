@@ -23,7 +23,8 @@ export default async function handler(req,res){
  const user=await auth.json();
  if(!user?.id)return json(res,401,{error:'Invalid account.'});
  const member=await fetch(url+'/rest/v1/app_members?select=user_id&user_id=eq.'+encodeURIComponent(user.id)+'&limit=1',{headers:{apikey:anon,Authorization:'Bearer '+token}});
- if(!member.ok||!Array.isArray(await member.json().catch(()=>null)))return json(res,403,{error:'This account is not authorised for HerLife.'});
+ const members=await member.json().catch(()=>null);
+ if(!member.ok||!Array.isArray(members)||members.length===0)return json(res,403,{error:'This account is not authorised for HerLife.'});
  const {mode,messages}=req.body||{};
  if(!Object.hasOwn(styles,mode)||!Array.isArray(messages)||!messages.length||messages.length>14)return json(res,400,{error:'Invalid conversation.'});
  const safe=messages.map(m=>({role:m?.role,text:m?.text})).filter(m=>(m.role==='user'||m.role==='assistant')&&typeof m.text==='string'&&m.text.length>0&&m.text.length<=LIMIT);
