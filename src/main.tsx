@@ -45,3 +45,5 @@ import './notes-studio.css';
 import './rich-note-editor.css';
 
 import './multimedia-notes.css';
+
+import './premium-life.css';
