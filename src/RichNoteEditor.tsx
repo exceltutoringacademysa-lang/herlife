@@ -1,5 +1,4 @@
 import {useEffect,useState,type ChangeEvent} from 'react';
-import type {Session} from '@supabase/supabase-js';
 import {supabase} from './lib/supabase';
 import {InkNode,PrivatePhotoNode,PrivatePdfNode} from './DocumentNodes';
 import {useEditor,EditorContent} from '@tiptap/react';
@@ -8,9 +7,9 @@ import Underline from '@tiptap/extension-underline';
 import Image from '@tiptap/extension-image';
 import {Bold,Italic,Underline as UnderlineIcon,List,ListOrdered,Heading2,Quote,Undo2,Redo2,CheckSquare,PenLine,ImagePlus,FileUp} from 'lucide-react';
 
-type Props={html:string;plainText:string;onChange:(html:string,text:string)=>void;fontSize:number;session:Session;noteId:string;ownerId:string;readOnly?:boolean};
+type Props={html:string;plainText:string;onChange:(html:string,text:string)=>void;fontSize:number;noteId:string;ownerId:string;readOnly?:boolean};
 function safeStart(html:string,text:string){if(html&&html.length<=300000)return html;return '<p>'+text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'</p><p>')+'</p>';}
-export function RichNoteEditor({html,plainText,onChange,fontSize,session,noteId,ownerId,readOnly=false}:Props){
+export function RichNoteEditor({html,plainText,onChange,fontSize,noteId,ownerId,readOnly=false}:Props){
  const [uploading,setUploading]=useState(false),[error,setError]=useState('');
  const editor=useEditor({
   editable:!readOnly,
