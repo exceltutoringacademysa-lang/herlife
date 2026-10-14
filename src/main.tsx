@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import {MusicProvider} from './MusicCinema';
 import './styles.css';
 import './native.css';
 import './life-studio.css';
@@ -19,7 +20,7 @@ import './companion.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <App />
+    <MusicProvider><App /></MusicProvider>
   </React.StrictMode>,
 );
 
@@ -47,3 +48,5 @@ import './rich-note-editor.css';
 import './multimedia-notes.css';
 
 import './premium-life.css';
+
+import './music-cinema.css';
