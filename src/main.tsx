@@ -37,3 +37,5 @@ import './reader-ai-upgrade.css';
 import './device-workspace.css';
 
 import './slp-study-responsive.css';
+
+import './phone-editor-fix.css';
