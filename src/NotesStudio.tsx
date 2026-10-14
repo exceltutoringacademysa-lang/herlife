@@ -1,8 +1,9 @@
 import {useCallback,useEffect,useRef,useState,type ChangeEvent} from 'react';
 import type {Session} from '@supabase/supabase-js';
-import {ArrowLeft,Bookmark,Check,CheckSquare,Folder,Grid2X2,Highlighter,ImagePlus,LayoutList,Menu,MoreVertical,PenLine,Plus,Search,Star,Trash2,Type,Undo2,Redo2,X,FileText,Download} from 'lucide-react';
+import {ArrowLeft,Bookmark,Check,CheckSquare,Folder,Grid2X2,Highlighter,ImagePlus,LayoutList,Menu,MoreVertical,PenLine,Plus,Search,Star,Trash2,Type,Undo2,Redo2,X,FileText,Download,Users,RefreshCw,Copy} from 'lucide-react';
 import {supabase} from './lib/supabase';
 import {RichNoteEditor} from './RichNoteEditor';
+import {ShareDialog} from './ShareDialog';
 
 type Kind='note'|'journal';
 type Item={id:string;user_id:string;kind:Kind;title:string;body:string;details:Record<string,unknown>;updated_at:string};
@@ -16,31 +17,46 @@ export function NotesStudio({session,kind}:{session:Session;kind:Kind}){
  const [folder,setFolder]=useState('Personal'),[drawer,setDrawer]=useState(false),[search,setSearch]=useState(''),[searchOpen,setSearchOpen]=useState(false),[grid,setGrid]=useState(true);
  const [extraFolders,setExtraFolders]=useState<string[]>(()=>{try{return JSON.parse(localStorage.getItem('herlife-folders-'+session.user.id+'-'+kind)||'[]') as string[];}catch{return [];}});
  const [menu,setMenu]=useState(false),[editingMenu,setEditingMenu]=useState(false),[sort,setSort]=useState<'recent'|'title'|'oldest'>('recent'),[message,setMessage]=useState(''),[saving,setSaving]=useState(false);
+ const [sharing,setSharing]=useState(false),[permissions,setPermissions]=useState<Record<string,'view'|'edit'>>({}),[conflict,setConflict]=useState(false);
+ const revision=useRef<{id:string;at:string}|null>(null);
  const [attachments,setAttachments]=useState<Record<string,string>>({}),[uploading,setUploading]=useState(false),[preview,setPreview]=useState(false),[font,setFont]=useState(17);
  const [undo,setUndo]=useState<string[]>([]),[redo,setRedo]=useState<string[]>([]);
  const textRef=useRef<HTMLTextAreaElement>(null),draftRef=useRef<Item|null>(null),pending=useRef(0),writeChain=useRef<Promise<unknown>>(Promise.resolve());
  const currentKey=session.user.id+'-'+kind;
  useEffect(()=>{let live=true;setDraft(null);setDrawer(false);setActive('All notes');setMessage('');setSearch('');setItems([]);
-  void supabase?.from('life_items').select('*').eq('kind',kind).eq('user_id',session.user.id).order('updated_at',{ascending:false}).then(({data,error})=>{if(!live)return;if(error)setMessage('Unable to load notes: '+error.message);else setItems((data||[]) as Item[]);});
+  void (async()=>{if(!supabase)return;const [{data:owned,error},{data:shares}]=await Promise.all([supabase.from('life_items').select('*').eq('kind',kind).eq('user_id',session.user.id).order('updated_at',{ascending:false}),supabase.from('note_shares').select('note_id,access').eq('collaborator_id',session.user.id)]);const shareRows=(shares||[]) as {note_id:string;access:'view'|'edit'}[];const ids=shareRows.map(x=>x.note_id);const shared=ids.length?await supabase.from('life_items').select('*').eq('kind',kind).in('id',ids):{data:[],error:null};if(!live)return;setPermissions(Object.fromEntries(shareRows.map(x=>[x.note_id,x.access])));if(error||shared.error)setMessage('Could not load all your notes.');setItems([...(owned||[]),...(shared.data||[])].filter((x,i,a)=>a.findIndex(y=>y.id===x.id)===i) as Item[]);})();
   return()=>{live=false;};},[currentKey,kind,session.user.id]);
  useEffect(()=>{draftRef.current=draft;},[draft]);
  const persist=useCallback((item:Item)=>{
   if(!supabase)return Promise.resolve(false);
+  if(conflict){setMessage('Resolve the edit conflict before saving.');return Promise.resolve(false);}
   const token=++pending.current;setSaving(true);
   const snapshot={...item,title:item.title.trim()||'Untitled',updated_at:new Date().toISOString()};
-  const send=async()=>{const {data,error}=await supabase!.from('life_items').upsert(snapshot,{onConflict:'id'}).select('*').single();if(error){if(token===pending.current)setMessage('Could not save: '+error.message);return false;}setItems(old=>[data as Item,...old.filter(x=>x.id!==item.id)]);if(token===pending.current){setSaving(false);setMessage('All changes saved');}return true;};
+  const send=async()=>{
+   let result:{data:unknown;error:{message:string}|null};
+   const prior=revision.current?.id===item.id?revision.current:null;
+   if(prior){result=await supabase!.rpc('save_collaborative_note',{p_note:item.id,p_title:snapshot.title,p_body:item.body,p_details:item.details,p_expected_at:prior.at});}
+   else if(item.user_id===session.user.id){result=await supabase!.from('life_items').upsert(snapshot,{onConflict:'id'}).select('*').single();}
+   else{setMessage('You cannot create a note for another account.');setSaving(false);return false;}
+   const {data,error}=result;
+   if(error){if(token===pending.current){setSaving(false);setMessage(error.message);if(error.message.includes('EDIT_CONFLICT'))setConflict(true);}return false;}
+   const saved=data as Item;revision.current={id:item.id,at:saved.updated_at};
+   setItems(old=>[saved,...old.filter(x=>x.id!==item.id)]);
+   if(token===pending.current){setSaving(false);setMessage('All changes saved');}
+   return true;
+  };
   writeChain.current=writeChain.current.then(send,send);return writeChain.current as Promise<boolean>;
- },[]);
- useEffect(()=>{if(!draft)return;const current= draft;const timeout=window.setTimeout(()=>{void persist(current);},850);return()=>clearTimeout(timeout);},[draft,persist]);
+ },[conflict,session.user.id]);
+ useEffect(()=>{if(!draft||conflict||permissions[draft.id]==='view')return;const current= draft;const timeout=window.setTimeout(()=>{void persist(current);},850);return()=>clearTimeout(timeout);},[draft,persist]);
  useEffect(()=>{let live=true;const d=draft;const files=d?paths(d.details):[];if(!files.length){setAttachments({});return;}
   void Promise.all(files.map(async p=>{const {data}=await supabase!.storage.from('herlife-private-memories').createSignedUrl(p,3600);return [p,data?.signedUrl||''] as const;})).then(x=>{if(live)setAttachments(Object.fromEntries(x));});
   return()=>{live=false;};},[draft?.id,JSON.stringify(draft?.details.attachments)]);
  function patch(edit:(d:Item)=>Item){setDraft(old=>old?edit(old):old);}
  function changeBody(v:string){if(draft){setUndo(a=>[...a.slice(-34),draft.body]);setRedo([]);}patch(d=>({...d,body:v,details:{...d.details,richHtml:''}}));}
- async function back(){if(draft){const current=draft;setDraft(null);await persist(current);}setPreview(false);setEditingMenu(false);}
- function edit(item:Item){setDraft({...item,details:{...item.details}});setUndo([]);setRedo([]);setPreview(false);setDrawer(false);setMessage('');}
- function create(){edit(fresh(session.user.id,kind));}
- async function dispose(){if(!draft)return;const item={...draft,details:{...draft.details,deletedAt:new Date().toISOString()}};const ok=await persist(item);if(ok){setDraft(null);setActive('All notes');}}
+ async function back(){if(draft&&!conflict&&permissions[draft.id]!=='view'){const current=draft;setDraft(null);await persist(current);}else setDraft(null);setPreview(false);setEditingMenu(false);}
+ function edit(item:Item){revision.current={id:item.id,at:item.updated_at};setConflict(false);setSharing(false);setDraft({...item,details:{...item.details}});setUndo([]);setRedo([]);setPreview(false);setDrawer(false);setMessage('');}
+ function create(){const item=fresh(session.user.id,kind);revision.current=null;setConflict(false);setDraft(item);setMessage('');setUndo([]);setRedo([]);setPreview(false);setDrawer(false);}
+ async function dispose(){if(!draft||draft.user_id!==session.user.id)return;const item={...draft,details:{...draft.details,deletedAt:new Date().toISOString()}};const ok=await persist(item);if(ok){setDraft(null);setActive('All notes');}}
  async function restore(item:Item){const details={...item.details};delete details.deletedAt;await persist({...item,details});}
  async function permanent(item:Item){if(!window.confirm('Permanently delete this entry? This cannot be undone.'))return;await writeChain.current;const {error}=await supabase!.from('life_items').delete().eq('id',item.id).eq('user_id',session.user.id);if(error){setMessage(error.message);return;}setItems(x=>x.filter(y=>y.id!==item.id));}
  function format(before:string,after='',placeholder='text'){const el=textRef.current;if(!el||!draft)return;const a=el.selectionStart,b=el.selectionEnd;const selected=draft.body.slice(a,b)||placeholder;const body=draft.body.slice(0,a)+before+selected+after+draft.body.slice(b);changeBody(body);requestAnimationFrame(()=>{el.focus();el.setSelectionRange(a+before.length,a+before.length+selected.length);});}
@@ -54,18 +70,20 @@ export function NotesStudio({session,kind}:{session:Session;kind:Kind}){
  const live=items.filter(x=>!get(x.details,'deletedAt')),trashed=items.filter(x=>get(x.details,'deletedAt'));
  const visible=(active==='Recycle bin'?trashed:live.filter(x=>active==='Favourites'?x.details.pinned===true:active==='Folder'?get(x.details,'folder')===folder:true)).filter(x=>(x.title+' '+x.body).toLowerCase().includes(search.toLowerCase())).sort((a,b)=>sort==='title'?a.title.localeCompare(b.title):sort==='oldest'?a.updated_at.localeCompare(b.updated_at):Number(Boolean(b.details.pinned))-Number(Boolean(a.details.pinned))||b.updated_at.localeCompare(a.updated_at));
  const folders=[...new Set(['Personal',...extraFolders,...live.map(x=>get(x.details,'folder')).filter(Boolean)])];
- const caption=active==='Folder'?folder:active;const isWriting=Boolean(draft);
+ const caption=active==='Folder'?folder:active;const isWriting=Boolean(draft);const canEdit=draft?draft.user_id===session.user.id||permissions[draft.id]==='edit':true;
  return <section className={'real-notes '+(isWriting?'real-notes-writing':'real-notes-collection')} aria-label={friendly(kind)+' workspace'}>
  {isWriting&&draft?<>
-  <div className="rn-editor-bar"><button aria-label="Return to notes" onClick={()=>void back()}><ArrowLeft size={24}/></button><span className="rn-editor-label">{kind==='journal'?'Journal entry':'Note'}</span><span className="rn-grow"/><button aria-label={draft.details.pinned?'Remove favourite':'Add favourite'} onClick={()=>patch(d=>({...d,details:{...d.details,pinned:!d.details.pinned}}))}><Star size={21} fill={draft.details.pinned?'currentColor':'none'}/></button><button aria-label="Add photo" onClick={()=>document.getElementById('rn-photo-upload')?.click()}><Plus size={24}/></button><button aria-label="More note options" onClick={()=>setEditingMenu(v=>!v)}><MoreVertical size={24}/></button></div>
-  {editingMenu&&<div className="rn-pop rn-editor-menu"><button onClick={()=>{setPreview(x=>!x);setEditingMenu(false);}}><FileText size={17}/>{preview?'Rich text editor':'Plain text mode'}</button><button onClick={()=>{patch(d=>({...d,details:{...d.details,pinned:!d.details.pinned}}));setEditingMenu(false);}}><Star size={17}/> {draft.details.pinned?'Remove favourite':'Add to favourites'}</button><button onClick={()=>{exportText();setEditingMenu(false);}}><Download size={17}/> Export text file</button><button onClick={()=>{setEditingMenu(false);void dispose();}}><Trash2 size={17}/> Move to recycle bin</button></div>}
-  <div className="rn-document"><input className="rn-document-title" aria-label="Note title" placeholder={kind==='journal'?'Journal entry title':'Title'} value={draft.title} onChange={e=>patch(d=>({...d,title:e.target.value}))} maxLength={180}/><div className="rn-document-meta">{stamp(draft.updated_at)} · {saving?'Saving…':'Private'} <label className="rn-folder-select"><Folder size={14}/><input aria-label="Note folder" placeholder="Folder" value={get(draft.details,'folder')} onChange={e=>patch(d=>({...d,details:{...d.details,folder:e.target.value.slice(0,55)}}))}/></label></div>
-  <input id="rn-photo-upload" type="file" hidden accept="image/jpeg,image/png,image/webp" multiple onChange={e=>void addPhoto(e)}/>
-  {preview?<textarea ref={textRef} className="rn-document-body" aria-label="Note text" placeholder={kind==='journal'?'Write your thoughts…':'Start writing…'} style={{fontSize:font}} value={draft.body} onChange={e=>changeBody(e.target.value)}/>:<RichNoteEditor session={session} noteId={draft.id} key={draft.id} html={get(draft.details,'richHtml')} plainText={draft.body} fontSize={font} onChange={(html,text)=>patch(d=>({...d,body:text,details:{...d.details,richHtml:html}}))}/>}
-  {paths(draft.details).length>0&&<div className="rn-attachments">{paths(draft.details).map(p=><div key={p} className="rn-image">{attachments[p]?<img src={attachments[p]} alt="Note attachment" loading="lazy"/>:<span>Opening photo…</span>}<button aria-label="Remove attached picture" onClick={()=>void removePhoto(p)}><X size={16}/></button></div>)}</div>}
+  <div className="rn-editor-bar"><button aria-label="Return to notes" onClick={()=>void back()}><ArrowLeft size={24}/></button><span className="rn-editor-label">{kind==='journal'?'Journal entry':'Note'}</span><span className="rn-grow"/><button aria-label={draft.details.pinned?'Remove favourite':'Add favourite'} onClick={()=>patch(d=>({...d,details:{...d.details,pinned:!d.details.pinned}}))}><Star size={21} fill={draft.details.pinned?'currentColor':'none'}/></button><button aria-label="Add photo" disabled={!canEdit} onClick={()=>document.getElementById('rn-photo-upload')?.click()}><Plus size={24}/></button><button aria-label="Share note" onClick={async()=>{if(draft&&!revision.current){const ok=await persist(draft);if(!ok)return;}setSharing(true);}}><Users size={21}/></button><button aria-label="More note options" onClick={()=>setEditingMenu(v=>!v)}><MoreVertical size={24}/></button></div>
+  {editingMenu&&<div className="rn-pop rn-editor-menu"><button onClick={()=>{setPreview(x=>!x);setEditingMenu(false);}}><FileText size={17}/>{preview?'Rich text editor':'Plain text mode'}</button><button onClick={()=>{patch(d=>({...d,details:{...d.details,pinned:!d.details.pinned}}));setEditingMenu(false);}}><Star size={17}/> {draft.details.pinned?'Remove favourite':'Add to favourites'}</button><button onClick={()=>{exportText();setEditingMenu(false);}}><Download size={17}/> Export text file</button><button disabled={!canEdit||draft.user_id!==session.user.id} onClick={()=>{setEditingMenu(false);void dispose();}}><Trash2 size={17}/> Move to recycle bin</button></div>}
+  <div className="rn-document"><input className="rn-document-title" aria-label="Note title" placeholder={kind==='journal'?'Journal entry title':'Title'} value={draft.title} disabled={!canEdit} onChange={e=>patch(d=>({...d,title:e.target.value}))} maxLength={180}/><div className="rn-document-meta">{stamp(draft.updated_at)} · {saving?'Saving…':'Private'} <label className="rn-folder-select"><Folder size={14}/><input aria-label="Note folder" placeholder="Folder" value={get(draft.details,'folder')} disabled={!canEdit} onChange={e=>patch(d=>({...d,details:{...d.details,folder:e.target.value.slice(0,55)}}))}/></label></div>
+  <input id="rn-photo-upload" type="file" disabled={!canEdit} hidden accept="image/jpeg,image/png,image/webp" multiple onChange={e=>void addPhoto(e)}/>
+  {preview?<textarea ref={textRef} className="rn-document-body" aria-label="Note text" disabled={!canEdit} placeholder={kind==='journal'?'Write your thoughts…':'Start writing…'} style={{fontSize:font}} value={draft.body} onChange={e=>changeBody(e.target.value)}/>:<RichNoteEditor session={session} noteId={draft.id} key={draft.id} html={get(draft.details,'richHtml')} plainText={draft.body} fontSize={font} readOnly={!canEdit} onChange={(html,text)=>patch(d=>({...d,body:text,details:{...d.details,richHtml:html}}))}/>}
+  {paths(draft.details).length>0&&<div className="rn-attachments">{paths(draft.details).map(p=><div key={p} className="rn-image">{attachments[p]?<img src={attachments[p]} alt="Note attachment" loading="lazy"/>:<span>Opening photo…</span>}<button aria-label="Remove attached picture" disabled={!canEdit} onClick={()=>void removePhoto(p)}><X size={16}/></button></div>)}</div>}
   </div>
   {preview&&<div className="rn-writing-tools" aria-label="Legacy text formatting toolbar"><button title="Handwriting mode is not yet in this editor" disabled><PenLine size={20}/></button><button aria-label="Insert checklist" onClick={()=>format('☐ ','','Task')}><CheckSquare size={20}/></button><button aria-label="Bold" onClick={()=>format('**','**')}><Type size={20}/></button><button aria-label="Highlight syntax" onClick={()=>format('==','==')}><Highlighter size={19}/></button><button aria-label="Heading" onClick={()=>format('## ','','Heading')}><Bookmark size={19}/></button><button aria-label="Smaller font" onClick={()=>setFont(v=>Math.max(14,v-1))}>A−</button><button aria-label="Larger font" onClick={()=>setFont(v=>Math.min(28,v+1))}>A+</button><button aria-label="Undo" disabled={!undo.length} onClick={()=>history(true)}><Undo2 size={20}/></button><button aria-label="Redo" disabled={!redo.length} onClick={()=>history(false)}><Redo2 size={20}/></button></div>}
-  <div className="rn-bottom-status" role="status">{uploading?'Uploading images…':message|| (saving?'Saving…':'Autosave on')}<button onClick={()=>void persist(draft)} disabled={saving}><Check size={14}/> Save</button></div>
+  {conflict&&<div role="alert" className="rn-conflict"><strong>This note changed on another device.</strong><p>Your edits have not replaced the newer version.</p><button onClick={async()=>{const {data}=await supabase!.from('life_items').select('*').eq('id',draft.id).single();if(data)edit(data as Item);}}>Reload latest</button><button onClick={()=>{const copy={...draft,id:crypto.randomUUID(),user_id:session.user.id,title:(draft.title||'Untitled')+' (local copy)'};revision.current=null;setConflict(false);setDraft(copy);}}>Keep my work as a copy</button></div>}
+  {sharing&&<ShareDialog session={session} noteId={draft.id} ownerId={draft.user_id} onClose={()=>setSharing(false)}/>}
+  <div className="rn-bottom-status" role="status">{uploading?'Uploading images…':message|| (saving?'Saving…':'Autosave on')}<button onClick={()=>void persist(draft)} disabled={saving||!canEdit||conflict}><Check size={14}/> Save</button></div>
  </>:<>
   <header className="rn-heading"><h1>{caption}</h1><p>{visible.length} {kind==='journal'?'entries':'notes'}</p></header>
   <div className="rn-collection-bar"><button aria-label="Open folders menu" onClick={()=>setDrawer(true)}><Menu size={24}/></button><span className="rn-grow"/><button aria-label="Search notes" onClick={()=>setSearchOpen(x=>!x)}><Search size={23}/></button><button aria-label="Notes options" onClick={()=>setMenu(x=>!x)}><MoreVertical size={23}/></button></div>
