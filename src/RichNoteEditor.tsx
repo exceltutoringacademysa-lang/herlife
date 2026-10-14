@@ -60,7 +60,7 @@ export function RichNoteEditor({html,plainText,onChange,fontSize,noteId,ownerId,
  {action('Heading',editor.isActive('heading',{level:2}),()=>editor.chain().focus().toggleHeading({level:2}).run(),<Heading2 size={19}/>)}
  {action('Bulleted list',editor.isActive('bulletList'),()=>editor.chain().focus().toggleBulletList().run(),<List size={19}/>)}
  {action('Numbered list',editor.isActive('orderedList'),()=>editor.chain().focus().toggleOrderedList().run(),<ListOrdered size={19}/>)}
- {action('Checklist',editor.isActive('taskList'),()=>editor.chain().focus().toggleTaskList().run(),<CheckSquare size={19}/>)}}
+ {action('Checklist',editor.isActive('taskList'),()=>editor.chain().focus().toggleTaskList().run(),<CheckSquare size={19}/>)}
  {action('Strikethrough',editor.isActive('strike'),()=>editor.chain().focus().toggleStrike().run(),<Strikethrough size={19}/>)}
  {action('Text highlight',editor.isActive('highlight'),()=>editor.chain().focus().toggleHighlight({color:'#ffeda6'}).run(),<Highlighter size={19}/>)}
  <label className="rich-format-color" title="Text colour"><input aria-label="Text colour" type="color" onChange={e=>editor.chain().focus().setColor(e.target.value).run()} defaultValue="#403544"/></label>
