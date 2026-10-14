@@ -288,7 +288,7 @@ export default function App() {
       {section==='boutique'&&<Boutique session={session} onOpenBag={()=>setSection('shopping')}/>}
       {section==='shopping'&&<ShoppingBagStudio session={session}/>}
       {section==='calculator'&&<SmartCalculator/>}
-      {section==='games'&&<HerLifeGames/>}
+      {section==='games'&&<HerLifeGames session={session}/>}
       {section==='bible-memory'&&<BibleMemory session={session}/>}
       {section==='focus'&&<FocusTimer/>}
       {section==='savings'&&<FinanceTracker session={session}/>}
