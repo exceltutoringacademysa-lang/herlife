@@ -33,3 +33,7 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
 }
 
 import './reader-ai-upgrade.css';
+
+import './device-workspace.css';
+
+import './slp-study-responsive.css';
