@@ -12,6 +12,7 @@ import { FinanceInsights, FINANCE_CATEGORIES } from './FinanceInsights';
 import { EventCalendar, SmartCalculator, ShoppingBagStudio } from './EverydayTools';
 import { Boutique } from './Boutique';
 import { HomeGlance } from './HomeGlance';
+import {installHerLifePalette} from './themeEngine';
 import {HabitInsights,FutureVision} from './GrowthDashboards';
 import {InvestmentAcademy} from './InvestmentAcademy';
 import {NotesStudio} from './NotesStudio';
@@ -91,6 +92,7 @@ export default function App() {
 
   useEffect(()=>{if(!session)return;const file=localStorage.getItem('herlife-memory-cover-'+session.user.id);if(file&&/^\\d{3}-memory\\.jpg$/.test(file))setFilmCover(file);},[session?.user.id]);
   useEffect(() => { document.documentElement.dataset.theme = dark ? 'dark' : 'light'; localStorage.setItem('herlife-theme', dark ? 'dark' : 'light'); }, [dark]);
+  useEffect(()=>installHerLifePalette(),[]);
   useEffect(() => {
     if (!supabase) { setLoading(false); return; }
     supabase.auth.getSession().then(({data}) => { setSession(data.session); setLoading(false); });
