@@ -22,7 +22,8 @@ import {BibleMemory,FinanceTracker,FocusTimer,AppearanceStudio,MemoryCoverPicker
 import {PrivateMemoryGallery} from './PrivateMemoryGallery';
 import {SLPPractice} from './SLPPractice';
 import {HerLifeCompanion} from './HerLifeCompanion';
-import {MusicStudio,CinemaStudio,MusicDock,useMusic} from './MusicCinema';
+import {MusicDock,useMusic} from './MusicCinema';
+import {FreeMusicStudio,FreeCinemaStudio} from './FreeMediaStudio';
 import { ForegroundReminderAlerts } from './ForegroundReminderAlerts';
 import { calculateNetCashFlow, parseTransactionAmount } from './lib/finance';
 
@@ -307,8 +308,8 @@ export default function App() {
       {section==='private-memories'&&<PrivateMemoryGallery session={session}/>}
       {section==='slp'&&<SLPPractice session={session}/>}
       {section==='companion'&&<HerLifeCompanion session={session}/>}
-      {section==='music'&&<MusicStudio session={session}/>}
-      {section==='cinema'&&<CinemaStudio session={session}/>}
+      {section==='music'&&<FreeMusicStudio session={session}/>}
+      {section==='cinema'&&<FreeCinemaStudio session={session}/>}
       {section==='notes'&&<NotesStudio session={session} kind="note"/>}
       {section==='goals'&&<><FutureVision goals={groups.goals} session={session}/><GoalMilestoneBoard session={session}/><LifeStudio session={session} kind="goal"/></>}
       {section==='wardrobe'&&<LifeStudio session={session} kind="wardrobe"/>}
