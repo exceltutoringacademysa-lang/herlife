@@ -1,7 +1,7 @@
 import {useEffect,useState,type FormEvent} from 'react';
 import type {Session} from '@supabase/supabase-js';
 import {useMusic,CinemaStudio} from './MusicCinema';
-import {Music2,Play,Pause,Heart,Search,Disc3,ExternalLink,Film,Clapperboard,RefreshCw} from 'lucide-react';
+import {Music2,Play,Pause,Heart,Search,Disc3,ExternalLink,Film,Clapperboard} from 'lucide-react';
 type Media={id:string;title:string;artist:string;url:string;sourceUrl:string;license:string;kind:'audio'|'video'};
 type FilmResult={id:string;title:string;url:string;license:string;sourceUrl:string;creator:string};
 const saved=<T,>(key:string,fallback:T):T=>{try{return JSON.parse(localStorage.getItem(key)||'null')||fallback;}catch{return fallback;}};
